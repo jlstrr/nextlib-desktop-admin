@@ -1,0 +1,65 @@
+// const API_ENDPOINT = 'https://api.nextlib-system.online/api/v1/';
+const LOCAL_API_ENDPOINT = 'http://localhost:4000/api/v1/';
+
+export async function adminLogin(username: string, password: string) {
+    const response = await fetch(`${LOCAL_API_ENDPOINT}admin/login`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // This ensures cookies are saved
+        body: JSON.stringify({ username, password }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Login failed');
+    }
+    
+    return response.json();
+}
+
+export async function adminLogout() {
+    const response = await fetch(`${LOCAL_API_ENDPOINT}admin/logout`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Logout failed');
+    }
+    return response.json();
+}
+
+export async function getAllAdmins() {
+    const response = await fetch(`${LOCAL_API_ENDPOINT}admin`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to fetch admins');
+    }
+    return response.json();
+}
+
+export async function getDashboardStats() {
+    const response = await fetch(`${LOCAL_API_ENDPOINT}admin/dashboard`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to fetch dashboard stats');
+    }
+    return response.json();
+}
