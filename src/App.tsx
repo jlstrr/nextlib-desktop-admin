@@ -8,6 +8,9 @@ import Computers from './pages/Computers';
 import Reservations from './pages/Reservations';
 import Attendance from './pages/Attendance';
 import Reports from './pages/Reports';
+import Laboratory from './pages/Laboratory';
+import Profile from './pages/Profile';
+import Settings from './pages/Settings';
 
 // A wrapper to check authentication and provide the layout
 const ProtectedLayout = () => {
@@ -40,6 +43,9 @@ function App() {
           <Route path="/reservations" element={<Reservations />} />
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/laboratory" element={<Laboratory />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>
     </HashRouter>

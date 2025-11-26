@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { getAllComputers } from '../api/computers';
+import { Dialog, DialogPanel, DialogTitle, Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
+import { getAllComputers, createComputer, updateComputer, deleteComputer, updateComputerStatus } from '../api/computers';
+import { getAllLaboratories } from '../api/laboratory';
 
 interface Laboratory {
   name: string;
@@ -32,9 +34,25 @@ function Computers() {
   const [error, setError] = useState<string | null>(null);
   const [selectedComputer, setSelectedComputer] = useState<Computer | null>(null);
   const [showDialog, setShowDialog] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [editingComputer, setEditingComputer] = useState<Computer | null>(null);
+  const [computerToDelete, setComputerToDelete] = useState<Computer | null>(null);
+  const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; computer: Computer } | null>(null);
+  const [formData, setFormData] = useState({
+    laboratory_id: '',
+    pc_number: '',
+    status: 'available',
+    notes: ''
+  });
 
   useEffect(() => {
     fetchComputers();
+    fetchLaboratories();
   }, []);
 
   const fetchComputers = async () => {
@@ -51,6 +69,108 @@ function Computers() {
     }
   };
 
+  const fetchLaboratories = async () => {
+    try {
+      const response: any = await getAllLaboratories();
+      setLaboratories(response.data.laboratories || []);
+    } catch (err) {
+      console.error('Error fetching laboratories:', err);
+    }
+  };
+
+  const handleAddNewComputer = () => {
+    setShowAddDialog(true);
+  };
+
+  const handleCloseAddDialog = () => {
+    setShowAddDialog(false);
+    setFormData({
+      laboratory_id: '',
+      pc_number: '',
+      status: 'available',
+      notes: ''
+    });
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmitComputer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      if (editingComputer) {
+        await updateComputer(editingComputer.id, formData);
+        handleCloseEditDialog();
+      } else {
+        await createComputer(formData);
+        handleCloseAddDialog();
+      }
+      fetchComputers();
+    } catch (err) {
+      console.error('Failed to save computer:', err);
+      alert(err instanceof Error ? err.message : 'Failed to save computer');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCloseEditDialog = () => {
+    setShowEditDialog(false);
+    setEditingComputer(null);
+    setFormData({
+      laboratory_id: '',
+      pc_number: '',
+      status: 'available',
+      notes: ''
+    });
+  };
+
+  const handleEditComputer = (computer: Computer) => {
+    setEditingComputer(computer);
+    setFormData({
+      laboratory_id: computer.laboratory_id.id,
+      pc_number: computer.pc_number,
+      status: computer.status,
+      notes: computer.notes || ''
+    });
+    setShowEditDialog(true);
+    setContextMenu(null);
+  };
+
+  const handleDeleteClick = (computer: Computer) => {
+    setComputerToDelete(computer);
+    setShowDeleteDialog(true);
+    setContextMenu(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!computerToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await deleteComputer(computerToDelete.id);
+      setShowDeleteDialog(false);
+      setComputerToDelete(null);
+      fetchComputers();
+    } catch (err) {
+      console.error('Failed to delete computer:', err);
+      alert(err instanceof Error ? err.message : 'Failed to delete computer');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteDialog(false);
+    setComputerToDelete(null);
+  };
+
   const handleComputerClick = (computer: Computer) => {
     setSelectedComputer(computer);
     setShowDialog(true);
@@ -60,6 +180,63 @@ function Computers() {
     setShowDialog(false);
     setSelectedComputer(null);
   };
+
+  const handleContextMenu = (e: React.MouseEvent, computer: Computer) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      computer
+    });
+  };
+
+  const handleLock = async (computer: Computer) => {
+    try {
+      await updateComputerStatus(computer.id, 'locked');
+      fetchComputers();
+      setContextMenu(null);
+    } catch (err) {
+      console.error('Failed to lock computer:', err);
+      alert(err instanceof Error ? err.message : 'Failed to lock computer');
+    }
+  };
+
+  const handleUnlock = async (computer: Computer) => {
+    try {
+      await updateComputerStatus(computer.id, 'available');
+      fetchComputers();
+      setContextMenu(null);
+    } catch (err) {
+      console.error('Failed to unlock computer:', err);
+      alert(err instanceof Error ? err.message : 'Failed to unlock computer');
+    }
+  };
+
+  const handleMaintenance = async (computer: Computer) => {
+    try {
+      await updateComputerStatus(computer.id, 'maintenance');
+      fetchComputers();
+      setContextMenu(null);
+    } catch (err) {
+      console.error('Failed to set maintenance:', err);
+      alert(err instanceof Error ? err.message : 'Failed to set maintenance');
+    }
+  };
+
+  const handleViewDetails = (computer: Computer) => {
+    setSelectedComputer(computer);
+    setShowDialog(true);
+    setContextMenu(null);
+  };
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    if (contextMenu) {
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }
+  }, [contextMenu]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -71,18 +248,18 @@ function Computers() {
         return 'border-purple-500';
       case 'maintenance':
         return 'border-yellow-500';
-      case 'broken':
       case 'locked':
+      case 'out_of_order':
         return 'border-red-500';
-      case 'inactive':
-      case 'unavailable':
-        return 'border-gray-400';
       default:
         return 'border-gray-300';
     }
   };
 
   const getStatusLabel = (status: string) => {
+    if (status.toLowerCase() === 'out_of_order') {
+      return 'Out of Order';
+    }
     return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
@@ -91,11 +268,11 @@ function Computers() {
     occupied: computers.filter(c => c.status.toLowerCase() === 'occupied').length,
     reserved: computers.filter(c => c.status.toLowerCase() === 'reserved').length,
     maintenance: computers.filter(c => c.status.toLowerCase() === 'maintenance').length,
-    broken: computers.filter(c => c.status.toLowerCase() === 'broken').length,
-    inactive: computers.filter(c => c.status.toLowerCase() === 'inactive').length,
+    locked: computers.filter(c => c.status.toLowerCase() === 'locked').length,
+    out_of_order: computers.filter(c => c.status.toLowerCase() === 'out_of_order').length,
   };
 
-  const totalInUse = computers.length - usageCounts.available - usageCounts.inactive;
+  const totalInUse = computers.length - usageCounts.available;
 
   return (
     <div className="space-y-6">
@@ -104,7 +281,7 @@ function Computers() {
           <h1 className="text-2xl font-bold text-gray-800">Computer Management</h1>
           <p className="text-sm text-gray-500">Dashboard / Computer</p>
         </div>
-        <button className="bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
+        <button onClick={handleAddNewComputer} className="bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
           Add New Computer
         </button>
       </div>
@@ -133,6 +310,7 @@ function Computers() {
                   <div
                     key={computer.id}
                     onClick={() => handleComputerClick(computer)}
+                    onContextMenu={(e) => handleContextMenu(e, computer)}
                     className={`flex flex-col items-center justify-center p-4 border-2 rounded-lg ${getStatusColor(computer.status)} bg-white hover:shadow-md transition-shadow cursor-pointer`}
                   >
                     <svg className="w-12 h-12 text-gray-700 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -194,28 +372,30 @@ function Computers() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 border-2 border-red-500 rounded"></div>
-                <span className="text-sm text-gray-700">Broken</span>
+                <span className="text-sm text-gray-700">Locked</span>
               </div>
-              <span className="text-sm font-medium text-gray-900">{usageCounts.broken}</span>
+              <span className="text-sm font-medium text-gray-900">{usageCounts.locked}</span>
             </div>
             
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-gray-400 rounded"></div>
-                <span className="text-sm text-gray-700">Inactive</span>
+                <div className="w-4 h-4 border-2 border-red-500 rounded"></div>
+                <span className="text-sm text-gray-700">Out of Order</span>
               </div>
-              <span className="text-sm font-medium text-gray-900">{usageCounts.inactive}</span>
+              <span className="text-sm font-medium text-gray-900">{usageCounts.out_of_order}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Computer Details Dialog */}
-      {showDialog && selectedComputer && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={closeDialog}>
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+      <Dialog open={showDialog} onClose={closeDialog} className="relative z-50">
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="mx-auto max-w-md w-full bg-white rounded-xl shadow-xl">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-800">Computer Details</h2>
+              <DialogTitle className="text-xl font-bold text-gray-800">Computer Details</DialogTitle>
               <button
                 onClick={closeDialog}
                 className="text-gray-400 hover:text-gray-600"
@@ -226,11 +406,13 @@ function Computers() {
               </button>
             </div>
             
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">PC Number</label>
-                <p className="text-gray-900">{selectedComputer.pc_number}</p>
-              </div>
+            {selectedComputer && (
+              <>
+                <div className="p-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">PC Number</label>
+                    <p className="text-gray-900">{selectedComputer.pc_number}</p>
+                  </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Laboratory</label>
@@ -239,13 +421,14 @@ function Computers() {
               
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Status</label>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium capitalize ${
-                  selectedComputer.status.toLowerCase() === 'available' ? 'bg-green-100 text-green-800' :
-                  selectedComputer.status.toLowerCase() === 'occupied' ? 'bg-blue-100 text-blue-800' :
-                  selectedComputer.status.toLowerCase() === 'reserved' ? 'bg-purple-100 text-purple-800' :
-                  selectedComputer.status.toLowerCase() === 'maintenance' ? 'bg-yellow-100 text-yellow-800' :
-                  selectedComputer.status.toLowerCase() === 'broken' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800'
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                  selectedComputer.status.toLowerCase() === 'available' ? 'bg-green-100 text-green-800 capitalize' :
+                  selectedComputer.status.toLowerCase() === 'occupied' ? 'bg-blue-100 text-blue-800 capitalize' :
+                  selectedComputer.status.toLowerCase() === 'reserved' ? 'bg-purple-100 text-purple-800 capitalize' :
+                  selectedComputer.status.toLowerCase() === 'maintenance' ? 'bg-yellow-100 text-yellow-800 capitalize' :
+                  selectedComputer.status.toLowerCase() === 'locked' ? 'bg-red-100 text-red-800 capitalize' :
+                  selectedComputer.status.toLowerCase() === 'out_of_order' ? 'bg-red-100 text-red-800' :
+                  'bg-gray-100 text-gray-800 capitalize'
                 }`}>
                   {getStatusLabel(selectedComputer.status)}
                 </span>
@@ -278,17 +461,380 @@ function Computers() {
               </button>
               <button
                 onClick={() => {
-                  console.log('Edit computer:', selectedComputer.id);
-                  // TODO: Implement edit functionality
+                  if (selectedComputer) {
+                    handleEditComputer(selectedComputer);
+                    closeDialog();
+                  }
                 }}
                 className="flex-1 bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium"
               >
                 Edit
               </button>
             </div>
-          </div>
+              </>
+            )}
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[180px]"
+          style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
+        >
+          <button
+            onClick={() => handleViewDetails(contextMenu.computer)}
+            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            View Details
+          </button>
+          
+          {contextMenu.computer.status.toLowerCase() !== 'locked' && (
+            <button
+              onClick={() => handleLock(contextMenu.computer)}
+              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              Lock Computer
+            </button>
+          )}
+          
+          {contextMenu.computer.status.toLowerCase() === 'locked' && (
+            <button
+              onClick={() => handleUnlock(contextMenu.computer)}
+              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+              </svg>
+              Unlock Computer
+            </button>
+          )}
+          
+          <button
+            onClick={() => handleMaintenance(contextMenu.computer)}
+            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Set Maintenance
+          </button>
+          
+          <div className="border-t border-gray-200 my-1"></div>
+          
+          <button
+            onClick={() => handleEditComputer(contextMenu.computer)}
+            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            Edit
+          </button>
+          
+          <button
+            onClick={() => handleDeleteClick(contextMenu.computer)}
+            className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete
+          </button>
         </div>
       )}
+
+      {/* Add Computer Dialog */}
+      <Dialog open={showAddDialog} onClose={handleCloseAddDialog} className="relative z-50">
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="mx-auto max-w-md w-full bg-white rounded-xl shadow-xl">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <DialogTitle className="text-xl font-bold text-gray-800">Add New Computer</DialogTitle>
+              <button
+                onClick={handleCloseAddDialog}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmitComputer}>
+              <div className="p-6 space-y-4">
+                {/* Laboratory Select */}
+                <div>
+                  <label htmlFor="laboratory_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    Laboratory
+                  </label>
+                  <select
+                    id="laboratory_id"
+                    name="laboratory_id"
+                    value={formData.laboratory_id}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  >
+                    <option value="">Select a laboratory</option>
+                    {laboratories.map(lab => (
+                      <option key={lab.id} value={lab.id}>{lab.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* PC Number */}
+                <div>
+                  <label htmlFor="pc_number" className="block text-sm font-medium text-gray-700 mb-1">
+                    PC Number
+                  </label>
+                  <input
+                    type="text"
+                    id="pc_number"
+                    name="pc_number"
+                    value={formData.pc_number}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="e.g., PC 1"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  />
+                </div>
+
+                {/* Status Select */}
+                <div>
+                  <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    id="status"
+                    name="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  >
+                    <option value="available">Available</option>
+                    <option value="occupied">Occupied</option>
+                    <option value="reserved">Reserved</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="locked">Locked</option>
+                    <option value="out_of_order">Out of Order</option>
+                  </select>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes (Optional)
+                  </label>
+                  <textarea
+                    id="notes"
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleInputChange}
+                    rows={3}
+                    placeholder="Add any additional notes..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm resize-none"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3 p-6 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={handleCloseAddDialog}
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-700 rounded-lg hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isSubmitting && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  )}
+                  {isSubmitting ? 'Adding...' : 'Add Computer'}
+                </button>
+              </div>
+            </form>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      {/* Edit Computer Dialog */}
+      <Dialog open={showEditDialog} onClose={handleCloseEditDialog} className="relative z-50">
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="mx-auto max-w-md w-full bg-white rounded-xl shadow-xl">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <DialogTitle className="text-xl font-bold text-gray-800">Edit Computer</DialogTitle>
+              <button
+                onClick={handleCloseEditDialog}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmitComputer}>
+              <div className="p-6 space-y-4">
+                {/* Laboratory Select */}
+                <div>
+                  <label htmlFor="edit_laboratory_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    Laboratory
+                  </label>
+                  <select
+                    id="edit_laboratory_id"
+                    name="laboratory_id"
+                    value={formData.laboratory_id}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  >
+                    <option value="">Select a laboratory</option>
+                    {laboratories.map(lab => (
+                      <option key={lab.id} value={lab.id}>{lab.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* PC Number */}
+                <div>
+                  <label htmlFor="edit_pc_number" className="block text-sm font-medium text-gray-700 mb-1">
+                    PC Number
+                  </label>
+                  <input
+                    type="text"
+                    id="edit_pc_number"
+                    name="pc_number"
+                    value={formData.pc_number}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="e.g., PC 1"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  />
+                </div>
+
+                {/* Status Select */}
+                <div>
+                  <label htmlFor="edit_status" className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    id="edit_status"
+                    name="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  >
+                    <option value="available">Available</option>
+                    <option value="occupied">Occupied</option>
+                    <option value="reserved">Reserved</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="locked">Locked</option>
+                    <option value="out_of_order">Out of Order</option>
+                  </select>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label htmlFor="edit_notes" className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes (Optional)
+                  </label>
+                  <textarea
+                    id="edit_notes"
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleInputChange}
+                    rows={3}
+                    placeholder="Add any additional notes..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm resize-none"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3 p-6 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={handleCloseEditDialog}
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-700 rounded-lg hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isSubmitting && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  )}
+                  {isSubmitting ? 'Updating...' : 'Update Computer'}
+                </button>
+              </div>
+            </form>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onClose={handleCancelDelete} className="relative z-50">
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="mx-auto max-w-md w-full bg-white rounded-xl shadow-xl">
+            <div className="p-6">
+              <DialogTitle className="text-xl font-bold text-gray-800 mb-4">
+                Confirm Delete
+              </DialogTitle>
+              
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete <span className="font-semibold">{computerToDelete?.pc_number}</span>? This action cannot be undone.
+              </p>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelDelete}
+                  disabled={isDeleting}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isDeleting && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  )}
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
     </div>
   );
 }

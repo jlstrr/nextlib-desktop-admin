@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getAllReservations } from '../api/reservation';
+import { getAllReservations, updateReservationStatus, approveReservation, rejectReservation } from '../api/reservation';
 
 interface User {
   _id: string;
@@ -114,10 +114,30 @@ function Reservations() {
         return 'bg-yellow-100 text-yellow-800';
       case 'approved':
         return 'bg-green-100 text-green-800';
-      case 'declined':
+      case 'rejected':
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const handleApprove = async (reservationId: string) => {
+    try {
+      await approveReservation(reservationId);
+      await fetchReservations();
+    } catch (err) {
+      console.error('Failed to approve reservation:', err);
+      setError(err instanceof Error ? err.message : 'Failed to approve reservation');
+    }
+  };
+
+  const handleReject = async (reservationId: string) => {
+    try {
+      await updateReservationStatus(reservationId, 'pending');
+      await fetchReservations();
+    } catch (err) {
+      console.error('Failed to reject reservation:', err);
+      setError(err instanceof Error ? err.message : 'Failed to reject reservation');
     }
   };
 
@@ -281,16 +301,18 @@ function Reservations() {
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
                       <button 
+                        onClick={() => handleApprove(reservation.id)}
                         className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs font-medium disabled:opacity-50"
                         disabled={reservation.status !== 'pending'}
                       >
                         Approve
                       </button>
                       <button 
+                        onClick={() => handleReject(reservation.id)}
                         className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-medium disabled:opacity-50"
                         disabled={reservation.status !== 'pending'}
                       >
-                        Decline
+                        Reject
                       </button>
                     </div>
                   </td>

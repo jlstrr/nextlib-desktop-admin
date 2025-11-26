@@ -39,7 +39,7 @@ function Login() {
       <div className="mb-8 text-center">
         <div className="flex items-center justify-center mb-6">
           <img 
-            src="/assets/ustp-logo.png"
+            src="/ustp-logo.png"
             alt="USTP Logo" 
             className="h-16 mr-3"
           />

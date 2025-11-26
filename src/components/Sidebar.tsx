@@ -1,6 +1,8 @@
 import { NavLink } from 'react-router-dom';
+import { useSidebar } from '../context/SidebarContext';
 
 function Sidebar() {
+  const { isSidebarOpen, closeSidebar } = useSidebar();
   const menuItems = [
     { 
       name: 'Dashboard', 
@@ -20,18 +22,27 @@ function Sidebar() {
         </svg>
       )
     },
+    // { 
+    //   name: 'Admin', 
+    //   path: '/admin', 
+    //   icon: (
+    //     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+    //       <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+    //     </svg>
+    //   )
+    // },
     { 
-      name: 'Admin', 
-      path: '/admin', 
+      name: 'Computers', 
+      path: '/computers', 
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
         </svg>
       )
     },
     { 
-      name: 'Computers', 
-      path: '/computers', 
+      name: 'Laboratories', 
+      path: '/laboratory', 
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
@@ -68,42 +79,64 @@ function Sidebar() {
   ];
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
-      {/* Logo Section */}
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-indigo-700 rounded-md flex items-center justify-center">
-            <span className="text-white font-bold text-sm">NL</span>
+    <>
+      {/* Overlay for mobile */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          onClick={closeSidebar}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <div className={`${
+        isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      } fixed lg:static inset-y-0 left-0 z-30 ${
+        isSidebarOpen ? 'w-64' : 'w-64 lg:w-20'
+      } bg-white border-r border-gray-200 min-h-screen flex flex-col transition-all duration-300 ease-in-out`}>
+        {/* Logo Section */}
+        <div className="p-6">
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-indigo-700 rounded-md flex items-center justify-center shrink-0">
+              <span className="text-white font-bold text-sm">NL</span>
+            </div>
+            <span className={`font-bold text-lg text-gray-800 whitespace-nowrap overflow-hidden transition-all duration-300 ${
+              isSidebarOpen ? 'opacity-100 w-auto' : 'lg:opacity-0 lg:w-0'
+            }`}>NextLib System</span>
           </div>
-          <span className="font-bold text-lg text-gray-800">NextLib System</span>
         </div>
-      </div>
 
       {/* Menu Section */}
       <div className="flex-1 py-6">
         <div className="px-4 mb-2">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Menu</span>
+          <span className={`text-xs font-semibold text-gray-400 uppercase tracking-wider transition-all duration-300 ${
+            isSidebarOpen ? 'opacity-100' : 'lg:opacity-0'
+          }`}>Menu</span>
         </div>
         <nav className="px-2 space-y-1">
           {menuItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
+              title={!isSidebarOpen ? item.name : undefined}
               className={({ isActive }) =>
-                `flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors ${
+                `flex items-center ${isSidebarOpen ? 'space-x-3' : 'lg:justify-center'} px-4 py-2.5 rounded-lg transition-colors ${
                   isActive
                     ? 'bg-indigo-50 text-indigo-700'
                     : 'text-gray-600 hover:bg-gray-50'
                 }`
               }
             >
-              {item.icon}
-              <span className="font-medium text-sm">{item.name}</span>
+              <span className="shrink-0">{item.icon}</span>
+              <span className={`font-medium text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ${
+                isSidebarOpen ? 'opacity-100 w-auto' : 'lg:opacity-0 lg:w-0'
+              }`}>{item.name}</span>
             </NavLink>
           ))}
         </nav>
       </div>
     </div>
+    </>
   );
 }
 

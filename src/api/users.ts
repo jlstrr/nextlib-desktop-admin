@@ -30,3 +30,50 @@ export async function getAllUsers(params: GetAllUsersParams = {}) {
     }
     return response.json();
 }
+
+export async function addUser(userData: any) {
+    const response = await fetch(`${LOCAL_API_ENDPOINT}users`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+        body: JSON.stringify(userData),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to add user');
+    }
+    return response.json();
+}
+
+export async function updateUser(userId: string, userData: any) {
+    const response = await fetch(`${LOCAL_API_ENDPOINT}users/${userId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+        body: JSON.stringify(userData),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to edit user');
+    }
+    return response.json();
+}
+
+export async function deleteUser(userId: string) {
+    const response = await fetch(`${LOCAL_API_ENDPOINT}users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete user');
+    }
+    return response.json();
+}

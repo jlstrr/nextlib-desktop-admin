@@ -39,3 +39,49 @@ export async function getAllReservations(filters: ReservationFilters = {}) {
     }
     return response.json();
 }
+
+export async function approveReservation(reservationId: string) {
+    const response = await fetch(`${LOCAL_API_ENDPOINT}reservations/${reservationId}/approve`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to approve reservation');
+    }
+    return response.json();
+}
+
+export async function rejectReservation(reservationId: string) {
+    const response = await fetch(`${LOCAL_API_ENDPOINT}reservations/${reservationId}/cancel`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to reject reservation');
+    }
+    return response.json();
+}
+
+export async function updateReservationStatus(reservationId: string, status: string) {
+    const response = await fetch(`${LOCAL_API_ENDPOINT}reservations/${reservationId}/status`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+        body: JSON.stringify({ status }),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to update reservation status');
+    }
+    return response.json();
+}

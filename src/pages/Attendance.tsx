@@ -1,17 +1,43 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getAllAttendanceRecords } from '../api/attendance';
+
+interface User {
+  _id: string;
+  id_number: string;
+  firstname: string;
+  lastname: string;
+  program?: string;
+  user_type: string;
+}
 
 interface AttendanceRecord {
-  id: number;
-  name: string;
-  program: string;
-  timeIn: string;
-  timeOut: string;
+  _id: string;
+  user_id: User;
+  time_in: string;
+  time_out: string | null;
   purpose: string;
-  userType: string;
+  notes: string | null;
   date: string;
+  isDeleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface PaginationData {
+  current_page: number;
+  total_pages: number;
+  total_logs: number;
+  per_page: number;
 }
 
 function Attendance() {
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [pagination, setPagination] = useState<PaginationData>({
+    current_page: 1,
+    total_pages: 1,
+    total_logs: 0,
+    per_page: 10
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -19,6 +45,32 @@ function Attendance() {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAttendanceRecords();
+  }, [currentPage, itemsPerPage, searchQuery, dateFrom, dateTo]);
+
+  const fetchAttendanceRecords = async () => {
+    try {
+      setLoading(true);
+      const response = await getAllAttendanceRecords({
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchQuery,
+        date_from: dateFrom,
+        date_to: dateTo
+      });
+      setAttendanceRecords(response.data.logs);
+      setPagination(response.data.pagination);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch attendance records');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSearch = () => {
     setSearchQuery(searchInput);
@@ -33,42 +85,24 @@ function Attendance() {
     setCurrentPage(1);
   };
 
-  // Sample data - replace with actual data from API
-  const attendanceData: AttendanceRecord[] = [
-    {
-      id: 1,
-      name: 'Zyrah Claire',
-      program: 'BSIT',
-      timeIn: '10:00 am',
-      timeOut: '11:00 am',
-      purpose: 'Research',
-      userType: 'Student',
-      date: 'March 3, 2025'
-    },
-    {
-      id: 2,
-      name: 'Zyrah Claire',
-      program: 'BSIT',
-      timeIn: '10:00 am',
-      timeOut: '11:00 am',
-      purpose: 'Research',
-      userType: 'Student',
-      date: 'March 3, 2025'
-    },
-    {
-      id: 3,
-      name: 'Zyrah Claire',
-      program: 'BSIT',
-      timeIn: '10:00 am',
-      timeOut: '11:00 am',
-      purpose: 'Research',
-      userType: 'Student',
-      date: 'March 3, 2025'
-    }
-  ];
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  };
 
-  const totalRecords = 15;
-  const totalPages = Math.ceil(totalRecords / 10);
+  const formatTime = (timeString: string) => {
+    if (!timeString) return 'N/A';
+    const date = new Date(timeString);
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -228,7 +262,28 @@ function Attendance() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-lg overflow-hidden">
+        <div className={`bg-white rounded-lg overflow-hidden relative ${attendanceRecords.length === 0 && !loading ? 'min-h-[200px]' : 'min-h-[400px]'}`}>
+          {loading && (
+            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+              <div className="flex flex-col items-center gap-3">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-700"></div>
+                <p className="text-gray-600 text-sm">Loading attendance records...</p>
+              </div>
+            </div>
+          )}
+          {error && (
+            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+              <div className="text-center">
+                <p className="text-red-600 mb-2">Error: {error}</p>
+                <button 
+                  onClick={fetchAttendanceRecords}
+                  className="text-indigo-700 hover:text-indigo-800 text-sm font-medium"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          )}
           <table className="w-full">
             <thead className="border-b border-gray-200">
               <tr>
@@ -243,18 +298,27 @@ function Attendance() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {attendanceData.map((record) => (
-                <tr key={record.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm text-gray-900">{record.id}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{record.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{record.program}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{record.timeIn}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{record.timeOut}</td>
+              {!loading && !error && attendanceRecords.map((record) => (
+                <tr key={record._id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm text-gray-900">{record.user_id.id_number}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {record.user_id.firstname} {record.user_id.lastname}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{record.user_id.program || 'N/A'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{formatTime(record.time_in)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{record.time_out ? formatTime(record.time_out) : 'N/A'}</td>
                   <td className="px-6 py-4 text-sm text-gray-900">{record.purpose}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{record.userType}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{record.date}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900 capitalize">{record.user_id.user_type}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{formatDate(record.date)}</td>
                 </tr>
               ))}
+              {!loading && !error && attendanceRecords.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-gray-500">
+                    No attendance records found
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
 
@@ -262,49 +326,33 @@ function Attendance() {
           <div className="px-6 py-4 bg-white border-t border-gray-200">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600">
-                Showing 1-3 of {totalRecords} Results
+                Showing {pagination.total_logs === 0 ? 0 : ((pagination.current_page - 1) * pagination.per_page) + 1}-
+                {Math.min(pagination.current_page * pagination.per_page, pagination.total_logs)} of {pagination.total_logs} Results
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  onClick={() => setCurrentPage(currentPage - 1)}
                   disabled={currentPage === 1}
                   className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
+                {Array.from({ length: pagination.total_pages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-1 text-sm rounded ${
+                      page === currentPage
+                        ? 'bg-indigo-700 text-white'
+                        : 'border border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
                 <button
-                  className={`px-3 py-1 text-sm rounded ${
-                    currentPage === 1
-                      ? 'bg-indigo-700 text-white'
-                      : 'border border-gray-300 hover:bg-gray-50'
-                  }`}
-                  onClick={() => setCurrentPage(1)}
-                >
-                  1
-                </button>
-                <button
-                  className={`px-3 py-1 text-sm rounded ${
-                    currentPage === 2
-                      ? 'bg-indigo-700 text-white'
-                      : 'border border-gray-300 hover:bg-gray-50'
-                  }`}
-                  onClick={() => setCurrentPage(2)}
-                >
-                  2
-                </button>
-                <button
-                  className={`px-3 py-1 text-sm rounded ${
-                    currentPage === 3
-                      ? 'bg-indigo-700 text-white'
-                      : 'border border-gray-300 hover:bg-gray-50'
-                  }`}
-                  onClick={() => setCurrentPage(3)}
-                >
-                  3
-                </button>
-                <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === pagination.total_pages}
                   className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next

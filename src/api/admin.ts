@@ -63,3 +63,34 @@ export async function getDashboardStats() {
     }
     return response.json();
 }
+
+export async function getAdminProfile() {
+    const response = await fetch(`${LOCAL_API_ENDPOINT}admin/profile`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to fetch profile');
+    }
+    return response.json();
+}
+
+export async function updateAdminProfile(profileData: any) {
+    const response = await fetch(`${LOCAL_API_ENDPOINT}admin/profile`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+        body: JSON.stringify(profileData),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to update profile');
+    }
+    return response.json();
+}
