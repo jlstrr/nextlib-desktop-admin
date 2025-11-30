@@ -1,8 +1,7 @@
-// const API_ENDPOINT = 'https://api.nextlib-system.online/api/v1/';
-const LOCAL_API_ENDPOINT = 'http://localhost:4000/api/v1/';
+const API_ENDPOINT = 'http://localhost:4000/api/v1/';
 
 export async function adminLogin(username: string, password: string) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}admin/login`, {
+    const response = await fetch(`${API_ENDPOINT}admin/login`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -20,7 +19,7 @@ export async function adminLogin(username: string, password: string) {
 }
 
 export async function adminLogout() {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}admin/logout`, {
+    const response = await fetch(`${API_ENDPOINT}admin/logout`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -35,7 +34,7 @@ export async function adminLogout() {
 }
 
 export async function getAllAdmins() {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}admin`, {
+    const response = await fetch(`${API_ENDPOINT}admin`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -50,7 +49,7 @@ export async function getAllAdmins() {
 }
 
 export async function getDashboardStats() {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}admin/dashboard`, {
+    const response = await fetch(`${API_ENDPOINT}admin/dashboard`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -65,7 +64,7 @@ export async function getDashboardStats() {
 }
 
 export async function getAdminProfile() {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}admin/profile`, {
+    const response = await fetch(`${API_ENDPOINT}admin/profile`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -80,7 +79,7 @@ export async function getAdminProfile() {
 }
 
 export async function updateAdminProfile(profileData: any) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}admin/profile`, {
+    const response = await fetch(`${API_ENDPOINT}admin/profile`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',

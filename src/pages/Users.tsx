@@ -1,14 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
+import { RadioGroup } from '@headlessui/react';
 import * as XLSX from 'xlsx';
 import { getAllUsers, addUser, updateUser, deleteUser } from '../api/users';
+import { getCourses } from '../api/courses';
+import { useNavigate } from 'react-router-dom';
 
 interface User {
   _id: string;
   id_number: string;
   firstname: string;
-  middle_initial: string;
+  middle_initial?: string;
   lastname: string;
+  yearLevel?: string | undefined;
   program_course: string;
   email: string;
   user_type: string;
@@ -29,6 +33,7 @@ interface PaginationData {
 }
 
 function Users() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [pagination, setPagination] = useState<PaginationData>({
     currentPage: 1,
@@ -40,6 +45,7 @@ function Users() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [userTypeFilter, setUserTypeFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -60,41 +66,64 @@ function Users() {
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const debounceTimerRef = useRef<number | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    id_number: string;
+    firstname: string;
+    middle_initial: string;
+    lastname: string;
+    yearLevel?: string | undefined;
+    program_course?: string | undefined;
+    email: string;
+    user_type: string;
+  }>({
     id_number: '',
     firstname: '',
     middle_initial: '',
     lastname: '',
-    program_course: '',
+    yearLevel: undefined,
+    program_course: undefined,
     email: '',
     user_type: 'student'
   });
+  const yearLevels = [
+    '1st Year',
+    '2nd Year',
+    '3rd Year',
+    '4th Year'
+  ];
+
+  const [userTypeSelected, setUserTypeSelected] = useState('student');
 
   const DEFAULT_PASSWORD = 'password';
   const DEFAULT_REMAINING_TIME = '20:00:00';
 
-  const programCourses = [
-    'BSIT',
-    'BSCS',
-    'BSIS',
-    'ACT',
-    'BSBA',
-    'BSED',
-    'BEED',
-    'BSN'
-  ];
+  const [programCourses, setProgramCourses] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await getCourses();
+        // Response shape: { status, message, data: [...] }
+        if (response && Array.isArray(response.data)) {
+          setProgramCourses(response.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch courses:', err);
+      }
+    };
+    fetchCourses();
+  }, []);
 
   useEffect(() => {
     fetchUsers();
-  }, [currentPage, itemsPerPage, searchQuery]);
+  }, [currentPage, itemsPerPage]);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
       const response = await getAllUsers({
         page: currentPage,
-        limit: itemsPerPage,
-        search: searchQuery
+        limit: itemsPerPage
       });
       setUsers(response.data);
       setPagination(response.pagination);
@@ -107,16 +136,12 @@ function Users() {
   };
 
   const handleSearch = (value: string) => {
-    // Clear existing timer
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-    
-    // Set new timer for debounced search
-    debounceTimerRef.current = setTimeout(() => {
-      setSearchQuery(value);
-      setCurrentPage(1);
-    }, 500); // 500ms debounce delay
+    setSearchInput(value);
+    setCurrentPage(1);
+  };
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setCurrentPage(1);
   };
 
   // Cleanup debounce timer on unmount
@@ -136,6 +161,7 @@ function Users() {
         firstname: user.firstname,
         middle_initial: user.middle_initial || '',
         lastname: user.lastname,
+        yearLevel: user.yearLevel,
         program_course: user.program_course,
         email: user.email,
         user_type: user.user_type
@@ -164,7 +190,8 @@ function Users() {
       firstname: '',
       middle_initial: '',
       lastname: '',
-      program_course: '',
+      yearLevel: undefined,
+      program_course: undefined,
       email: '',
       user_type: 'student'
     });
@@ -182,22 +209,25 @@ function Users() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const userData = {
+      let userData = {
         ...formData,
         ...(formData.middle_initial && { middle_initial: formData.middle_initial })
       };
-      
+      // Remove yearLevel and program_course if user_type is faculty
+      if (formData.user_type === 'faculty') {
+        userData.yearLevel = undefined;
+        userData.program_course = undefined;
+      }
       if (isEditMode && editingUserId) {
         await updateUser(editingUserId, userData);
       } else {
         const newUserData = {
           ...userData,
-          password: DEFAULT_PASSWORD,
-          remaining_time: DEFAULT_REMAINING_TIME
+          password: formData.lastname + "@" + formData.id_number,
+          remaining_time: formData.user_type === 'student' ? DEFAULT_REMAINING_TIME : null
         };
         await addUser(newUserData);
       }
-      
       handleCloseDialog();
       fetchUsers();
     } catch (err) {
@@ -293,7 +323,7 @@ function Users() {
               program_course: row.program_course || row.program || row.course || '',
               email: row.email || row.Email || '',
               user_type: row.user_type || row.type || 'student',
-              password: DEFAULT_PASSWORD,
+              password: row.lastname + "@" + row.id_number,
               remaining_time: DEFAULT_REMAINING_TIME
             };
             
@@ -345,6 +375,7 @@ function Users() {
         middle_initial: 'A',
         lastname: 'Doe',
         program_course: 'BSIT',
+        yearLevel: '1st Year',
         email: 'john.doe@example.com',
         user_type: 'student'
       },
@@ -354,6 +385,7 @@ function Users() {
         middle_initial: 'B',
         lastname: 'Smith',
         program_course: 'BSCS',
+        yearLevel: '1st Year',
         email: 'jane.smith@example.com',
         user_type: 'student'
       }
@@ -393,17 +425,46 @@ function Users() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         {/* Search Bar */}
         <div className="flex items-center gap-3 mb-6">
-          <input
-            type="text"
-            placeholder="Search by name, ID number, or email"
-            value={searchInput}
-            onChange={(e) => {
-              setSearchInput(e.target.value);
-              handleSearch(e.target.value);
-            }}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-          />
-          
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="Search by name, ID number, or email"
+              value={searchInput}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm pr-10"
+            />
+            {searchInput && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                tabIndex={0}
+                aria-label="Clear search"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {/* User Type Filter */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="userTypeFilter" className="text-sm text-gray-600 whitespace-nowrap">Type:</label>
+            <select
+              id="userTypeFilter"
+              value={userTypeFilter}
+              onChange={(e) => {
+                setUserTypeFilter(e.target.value);
+                setCurrentPage(1);
+                setUserTypeSelected(e.target.value);
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">All</option>
+              <option value="student">Student</option>
+              <option value="faculty">Faculty</option>
+            </select>
+          </div>
           <div className="flex items-center gap-2">
             <label htmlFor="itemsPerPage" className="text-sm text-gray-600 whitespace-nowrap">
               Show:
@@ -445,63 +506,97 @@ function Users() {
               <tr className="border-b border-gray-200">
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase">No.</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase">Name</th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase">ID Number</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase">
+                  {userTypeSelected === 'faculty' ? 'Employee ID' : 'ID Number'}
+                </th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase">Email</th>
+                {userTypeSelected === 'student' && (
+                  <>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase">Program/Course</th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase">Year Level</th>
+                  </>
+                )}
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase">User Type</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase">Status</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase">Action</th>
               </tr>
             </thead>
             <tbody>
-              {!loading && !error && users.map((user, index) => (
-                <tr key={user._id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-4 px-4 text-sm text-gray-800">{((pagination.currentPage - 1) * pagination.itemsPerPage) + index + 1}</td>
-                  <td className="py-4 px-4 text-sm text-gray-800">
-                    {user.firstname} {user.middle_initial ? `${user.middle_initial}. ` : ''}{user.lastname}
-                  </td>
-                  <td className="py-4 px-4 text-sm text-gray-800">{user.id_number}</td>
-                  <td className="py-4 px-4 text-sm text-gray-800">{user.email}</td>
-                  <td className="py-4 px-4 text-sm text-gray-800 capitalize">{user.user_type}</td>
-                  <td className="py-4 px-4">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 capitalize">
-                      {user.status}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => handleEdit(user._id)}
-                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-medium"
-                      >
-                        Edit
-                      </button>
-                      <button 
-                        onClick={() => handleRemove(user._id)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-medium"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {!loading && !error && users.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                      <svg className="w-16 h-16 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                      </svg>
-                      <p className="text-gray-500 font-medium">No users found</p>
-                      {searchQuery && (
-                        <p className="text-sm text-gray-400">
-                          No results match your search "{searchQuery}"
-                        </p>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )}
+              {!loading && !error && (() => {
+                const filteredUsers = users.filter(user => {
+                  const matchesType = !userTypeFilter || user.user_type === userTypeFilter;
+                  const search = searchInput.trim().toLowerCase();
+                  const matchesSearch = !search || (
+                    user.firstname.toLowerCase().includes(search) ||
+                    user.lastname.toLowerCase().includes(search) ||
+                    user.id_number.toLowerCase().includes(search) ||
+                    user.email.toLowerCase().includes(search)
+                  );
+                  return matchesType && matchesSearch;
+                });
+                if (filteredUsers.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                          <svg className="w-16 h-16 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                          </svg>
+                          <p className="text-gray-500 font-medium">No users found</p>
+                          {(searchInput || userTypeFilter) && (
+                            <p className="text-sm text-gray-400">
+                              {searchInput && userTypeFilter
+                                ? `No results match your search "${searchInput}" and filter "${userTypeFilter}"`
+                                : searchInput
+                                  ? `No results match your search "${searchInput}"`
+                                  : `No results match the filter "${userTypeFilter}"`
+                              }
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+                return filteredUsers.map((user, index) => (
+                  <tr key={user._id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-4 px-4 text-sm text-gray-800">{((pagination.currentPage - 1) * pagination.itemsPerPage) + index + 1}</td>
+                    <td className="py-4 px-4 text-sm text-gray-800">
+                      {user.firstname} {user.middle_initial ? `${user.middle_initial}. ` : ''}{user.lastname}
+                    </td>
+                    <td className="py-4 px-4 text-sm text-gray-800">{user.id_number}</td>
+                    <td className="py-4 px-4 text-sm text-gray-800">{user.email}</td>
+                    {userTypeSelected === 'student' && (
+                      <>
+                        <td className="py-4 px-4 text-sm text-gray-800">{user.program_course}</td>
+                        <td className="py-4 px-4 text-sm text-gray-800">{user.yearLevel}</td>
+                      </>
+                    )}
+                    <td className="py-4 px-4 text-sm text-gray-800 capitalize">{user.user_type}</td>
+                    <td className="py-4 px-4">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 capitalize">
+                        {user.status}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => handleEdit(user._id)}
+                          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-medium"
+                        >
+                          Edit
+                        </button>
+                        {/* <button 
+                          onClick={() => handleRemove(user._id)}
+                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-medium"
+                        >
+                          Delete
+                        </button> */}
+                      </div>
+                    </td>
+                  </tr>
+                ));
+              })()}
             </tbody>
           </table>
         </div>
@@ -556,6 +651,40 @@ function Users() {
               </DialogTitle>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* User Type Selection - Headless UI RadioGroup with descriptions and responsive width */}
+                <div className="mb-4">
+                  {/* <label className="block text-sm font-medium text-gray-700 mb-2">User Type</label> */}
+                  <RadioGroup value={formData.user_type} onChange={value => setFormData(prev => ({ ...prev, user_type: value }))}>
+                    <div className="grid grid-cols-2 gap-4 w-full">
+                      {[
+                        {
+                          type: 'student',
+                          label: 'Student',
+                          description: 'For regular students using the system.'
+                        },
+                        {
+                          type: 'faculty',
+                          label: 'Faculty',
+                          description: 'For teachers, professors, and staff.'
+                        }
+                      ].map(option => (
+                        <RadioGroup.Option key={option.type} value={option.type} className={({ checked }) =>
+                          `flex flex-col items-start px-4 py-3 rounded-lg border transition-colors duration-150 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer w-full min-w-0 ${checked ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`
+                        }>
+                          {({ checked }) => (
+                            <>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`inline-block w-4 h-4 rounded-full border-2 ${checked ? 'bg-white border-white' : 'bg-gray-200 border-gray-400'}`}></span>
+                                <span className="font-semibold">{option.label}</span>
+                              </div>
+                              <span className={`text-xs ${checked ? 'text-indigo-100' : 'text-gray-500'}`}>{option.description}</span>
+                            </>
+                          )}
+                        </RadioGroup.Option>
+                      ))}
+                    </div>
+                  </RadioGroup>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   {/* ID Number */}
                   <div>
@@ -637,43 +766,69 @@ function Users() {
                     />
                   </div>
 
-                  {/* Program/Course */}
-                  <div>
-                    <label htmlFor="program_course" className="block text-sm font-medium text-gray-700 mb-1">
-                      Program/Course
-                    </label>
-                    <select
-                      id="program_course"
-                      name="program_course"
-                      value={formData.program_course}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                    >
-                      <option value="">Select a program</option>
-                      {programCourses.map(course => (
-                        <option key={course} value={course}>{course}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* Year Level - only show for students */}
+                  {formData.user_type !== 'faculty' && (
+                    <div>
+                      <label htmlFor="yearLevel" className="block text-sm font-medium text-gray-700 mb-1">
+                        Year Level
+                      </label>
+                      <select
+                        id="yearLevel"
+                        name="yearLevel"
+                        value={formData.yearLevel}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                      >
+                        <option value="">Select year level</option>
+                        {yearLevels.map(level => (
+                          <option key={level} value={level}>{level}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
-                  {/* User Type */}
-                  <div>
-                    <label htmlFor="user_type" className="block text-sm font-medium text-gray-700 mb-1">
-                      User Type
-                    </label>
-                    <select
-                      id="user_type"
-                      name="user_type"
-                      value={formData.user_type}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                    >
-                      <option value="student">Student</option>
-                      <option value="faculty">Faculty</option>
-                    </select>
-                  </div>
+                  {/* Program/Course */}
+                  {formData.user_type !== 'faculty' && (
+                    <div>
+                      <div className='flex flex-row justify-between items-center mb-1'>
+                        <div className="flex flex-row justify-between">
+                          <label htmlFor="program_course" className="block text-sm font-medium text-gray-700 mb-1">
+                            Program/Course
+                          </label>
+                          <a
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              // alert('To add a new program/course, please go to the Courses Management section.');
+                              navigate('/settings');
+                            }}
+                            className="text-xs text-indigo-700 hover:underline ml-2 px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            tabIndex={0}
+                          >
+                            Add New
+                          </a>
+                        </div>
+                      </div>
+                      <select
+                        id="program_course"
+                        name="program_course"
+                        value={formData.program_course}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                      >
+                        <option value="">Select a program</option>
+                        {programCourses.length === 0 ? (
+                          <option disabled>Loading...</option>
+                        ) : (
+                          programCourses.map(course => (
+                            <option key={course._id} value={course.name}>{course.name}</option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 {/* Action Buttons */}
@@ -776,7 +931,7 @@ function Users() {
               <div className="mb-6">
                 <p className="text-sm text-gray-600 mb-4">
                   Upload an Excel file (.xlsx, .xls) with the following columns: 
-                  <span className="font-medium"> id_number, firstname, middle_initial, lastname, program_course, email, user_type</span>
+                  <span className="font-medium"> id_number, firstname, middle_initial, lastname, program_course, yearLevel, email, user_type</span>
                 </p>
                 
                 <input
@@ -826,7 +981,7 @@ function Users() {
                   {importResult.failed === 0 ? (
                     <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                       <div className="flex items-start gap-3">
-                        <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-5 h-5 text-green-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <div>
@@ -841,7 +996,7 @@ function Users() {
                     <div className="space-y-4">
                       <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                         <div className="flex items-start gap-3">
-                          <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                           </svg>
                           <div className="flex-1">

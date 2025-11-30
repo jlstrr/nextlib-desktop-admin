@@ -1,24 +1,19 @@
-// const API_ENDPOINT = 'https://api.nextlib-system.online/api/v1/';
-const LOCAL_API_ENDPOINT = 'http://localhost:4000/api/v1/';
+const API_ENDPOINT = 'http://localhost:4000/api/v1/';
 
 interface ReservationFilters {
     page?: number;
     limit?: number;
-    search?: string;
     date_from?: string;
     date_to?: string;
 }
 
 export async function getAllReservations(filters: ReservationFilters = {}) {
-    const { page = 1, limit = 10, search, date_from, date_to } = filters;
+    const { page = 1, limit = 10, date_from, date_to } = filters;
     
     const params = new URLSearchParams();
     params.append('page', page.toString());
     params.append('limit', limit.toString());
     
-    if (search) {
-        params.append('search', search);
-    }
     if (date_from) {
         params.append('date_from', date_from);
     }
@@ -26,7 +21,7 @@ export async function getAllReservations(filters: ReservationFilters = {}) {
         params.append('date_to', date_to);
     }
     
-    const response = await fetch(`${LOCAL_API_ENDPOINT}reservations?${params.toString()}`, {
+    const response = await fetch(`${API_ENDPOINT}reservations?${params.toString()}`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -41,7 +36,7 @@ export async function getAllReservations(filters: ReservationFilters = {}) {
 }
 
 export async function approveReservation(reservationId: string) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}reservations/${reservationId}/approve`, {
+    const response = await fetch(`${API_ENDPOINT}reservations/${reservationId}/approve`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
@@ -56,7 +51,7 @@ export async function approveReservation(reservationId: string) {
 }
 
 export async function rejectReservation(reservationId: string) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}reservations/${reservationId}/cancel`, {
+    const response = await fetch(`${API_ENDPOINT}reservations/${reservationId}/cancel`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
@@ -71,7 +66,7 @@ export async function rejectReservation(reservationId: string) {
 }
 
 export async function updateReservationStatus(reservationId: string, status: string) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}reservations/${reservationId}/status`, {
+    const response = await fetch(`${API_ENDPOINT}reservations/${reservationId}/status`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',

@@ -1,16 +1,15 @@
-// const API_ENDPOINT = 'https://api.nextlib-system.online/api/v1/';
-const LOCAL_API_ENDPOINT = 'http://localhost:4000/api/v1/';
+const API_ENDPOINT = 'http://localhost:4000/api/v1/';
 
 interface AttendanceFilters {
     page?: number;
     limit?: number;
     search?: string;
-    date_from?: string;
-    date_to?: string;
+    start_date?: string;
+    end_date?: string;
 }
 
 export async function getAllAttendanceRecords(filters: AttendanceFilters = {}) {
-    const { page = 1, limit = 10, search, date_from, date_to } = filters;
+    const { page = 1, limit = 10, search, start_date, end_date } = filters;
     
     const params = new URLSearchParams();
     params.append('page', page.toString());
@@ -19,14 +18,14 @@ export async function getAllAttendanceRecords(filters: AttendanceFilters = {}) {
     if (search) {
         params.append('search', search);
     }
-    if (date_from) {
-        params.append('date_from', date_from);
+    if (start_date) {
+        params.append('start_date', start_date);
     }
-    if (date_to) {
-        params.append('date_to', date_to);
+    if (end_date) {
+        params.append('end_date', end_date);
     }
     
-    const response = await fetch(`${LOCAL_API_ENDPOINT}attendance-logs?${params.toString()}`, {
+    const response = await fetch(`${API_ENDPOINT}attendance-logs?${params.toString()}`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',

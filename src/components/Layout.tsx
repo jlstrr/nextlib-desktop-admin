@@ -11,15 +11,25 @@ function LayoutContent({ children }: LayoutProps) {
   const { isSidebarOpen } = useSidebar();
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${
-        isSidebarOpen ? 'lg:ml-0' : 'lg:ml-0'
-      }`}>
-        <Header />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
-          {children}
-        </main>
+    <div className='flex flex-col'>
+      <span className='bg-[#201a50] text-white p-3 font-bold uppercase text-center text-sm flex items-center justify-center'>
+        <img 
+          src="/ustp-logo-white.png"
+          alt="USTP Logo" 
+          className="h-16 mr-3"
+        />
+        University of Science and Technology of Southern Philippines
+      </span>
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar />
+        <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${
+          isSidebarOpen ? 'lg:ml-0' : 'lg:ml-0'
+        }`}>
+          <Header />
+          <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   );

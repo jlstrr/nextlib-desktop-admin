@@ -12,11 +12,14 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js')
     }
   });
+    // Hide the menu bar
+    win.setMenuBarVisibility(false);
+    win.setMenu(null);
 
   if (isDev) {
     // Load Vite dev server
     win.loadURL('http://localhost:5173'); 
-    win.webContents.openDevTools(); // Open console for debugging
+    // win.webContents.openDevTools(); // Open console for debugging
   } else {
     // Load built React files in production
     win.loadFile(path.join(__dirname, '../dist/index.html'));

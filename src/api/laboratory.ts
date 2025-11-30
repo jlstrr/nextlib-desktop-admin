@@ -1,8 +1,7 @@
-// const API_ENDPOINT = 'https://api.nextlib-system.online/api/v1/';
-const LOCAL_API_ENDPOINT = 'http://localhost:4000/api/v1/';
+const API_ENDPOINT = 'http://localhost:4000/api/v1/';
 
 export async function getAllLaboratories() {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}laboratories`, {
+    const response = await fetch(`${API_ENDPOINT}laboratories`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -17,7 +16,7 @@ export async function getAllLaboratories() {
 }
 
 export async function createLaboratory(laboratoryData: any) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}laboratories`, {
+    const response = await fetch(`${API_ENDPOINT}laboratories`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -33,7 +32,7 @@ export async function createLaboratory(laboratoryData: any) {
 }
 
 export async function updateLaboratory(laboratoryId: string, laboratoryData: any) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}laboratories/${laboratoryId}`, {
+    const response = await fetch(`${API_ENDPOINT}laboratories/${laboratoryId}`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -49,7 +48,7 @@ export async function updateLaboratory(laboratoryId: string, laboratoryData: any
 }
 
 export async function deleteLaboratory(laboratoryId: string) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}laboratories/${laboratoryId}`, {
+    const response = await fetch(`${API_ENDPOINT}laboratories/${laboratoryId}`, {
         method: 'DELETE',
         headers: {
             'Content-Type': 'application/json',
@@ -64,7 +63,7 @@ export async function deleteLaboratory(laboratoryId: string) {
 }
 
 export async function updateLaboratoryStatus(laboratoryId: string, statusData: any) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}laboratories/${laboratoryId}/status`, {
+    const response = await fetch(`${API_ENDPOINT}laboratories/${laboratoryId}/status`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',

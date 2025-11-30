@@ -1,8 +1,7 @@
-// const API_ENDPOINT = 'https://api.nextlib-system.online/api/v1/';
-const LOCAL_API_ENDPOINT = 'http://localhost:4000/api/v1/';
+const API_ENDPOINT = 'http://localhost:4000/api/v1/';
 
 export async function getAllComputers() {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}computers`, {
+    const response = await fetch(`${API_ENDPOINT}computers`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -17,7 +16,7 @@ export async function getAllComputers() {
 }
 
 export async function createComputer(computerData: any) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}computers`, {
+    const response = await fetch(`${API_ENDPOINT}computers`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -33,7 +32,7 @@ export async function createComputer(computerData: any) {
 }
 
 export async function updateComputer(computerId: string, computerData: any) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}computers/${computerId}`, {
+    const response = await fetch(`${API_ENDPOINT}computers/${computerId}`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -49,7 +48,7 @@ export async function updateComputer(computerId: string, computerData: any) {
 }
 
 export async function deleteComputer(computerId: string) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}computers/${computerId}`, {
+    const response = await fetch(`${API_ENDPOINT}computers/${computerId}`, {
         method: 'DELETE',
         headers: {
             'Content-Type': 'application/json',
@@ -64,7 +63,7 @@ export async function deleteComputer(computerId: string) {
 }
 
 export async function updateComputerStatus(computerId: string, status: string) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}computers/${computerId}/status`, {
+    const response = await fetch(`${API_ENDPOINT}computers/${computerId}/status`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',

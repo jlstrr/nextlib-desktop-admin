@@ -1,6 +1,5 @@
-// const API_ENDPOINT = 'https://api.nextlib-system.online/api/v1/';
-const LOCAL_API_ENDPOINT = 'http://localhost:4000/api/v1/';
-
+const API_ENDPOINT = 'http://localhost:4000/api/v1/';
+    
 interface GetAllUsersParams {
     page?: number;
     limit?: number;
@@ -15,7 +14,7 @@ export async function getAllUsers(params: GetAllUsersParams = {}) {
     if (params.search) queryParams.append('search', params.search);
     
     const queryString = queryParams.toString();
-    const url = `${LOCAL_API_ENDPOINT}users${queryString ? `?${queryString}` : ''}`;
+    const url = `${API_ENDPOINT}users${queryString ? `?${queryString}` : ''}`;
     
     const response = await fetch(url, {
         method: 'GET',
@@ -32,7 +31,7 @@ export async function getAllUsers(params: GetAllUsersParams = {}) {
 }
 
 export async function addUser(userData: any) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}users`, {
+    const response = await fetch(`${API_ENDPOINT}users`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -48,7 +47,7 @@ export async function addUser(userData: any) {
 }
 
 export async function updateUser(userId: string, userData: any) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}users/${userId}`, {
+    const response = await fetch(`${API_ENDPOINT}users/${userId}`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -64,7 +63,7 @@ export async function updateUser(userId: string, userData: any) {
 }
 
 export async function deleteUser(userId: string) {
-    const response = await fetch(`${LOCAL_API_ENDPOINT}users/${userId}`, {
+    const response = await fetch(`${API_ENDPOINT}users/${userId}`, {
         method: 'DELETE',
         headers: {
             'Content-Type': 'application/json',

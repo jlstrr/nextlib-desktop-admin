@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { getAllReservations, updateReservationStatus, approveReservation, rejectReservation } from '../api/reservation';
 
 interface User {
@@ -39,6 +40,8 @@ interface PaginationData {
 }
 
 function Reservations() {
+    const [showApproveDialog, setShowApproveDialog] = useState(false);
+    const [approveTargetId, setApproveTargetId] = useState<string | null>(null);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [pagination, setPagination] = useState<PaginationData>({
     currentPage: 1,
@@ -48,8 +51,8 @@ function Reservations() {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [searchQuery, setSearchQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -58,18 +61,41 @@ function Reservations() {
 
   useEffect(() => {
     fetchReservations();
-  }, [currentPage, itemsPerPage, searchQuery, dateFrom, dateTo]);
+  }, [currentPage, itemsPerPage]);
 
-  const fetchReservations = async () => {
+  useEffect(() => {
+    // Client-side search in displayed reservations (ID, Name, Status only)
+    if (!searchInput) {
+      setFilteredReservations(reservations);
+    } else {
+      const searchLower = searchInput.toLowerCase();
+      setFilteredReservations(
+        reservations.filter(r => {
+          const name = `${r.user_id.firstname} ${r.user_id.lastname}`;
+          const id = r.reservation_number || '';
+          const status = r.status || '';
+          return (
+            id.toLowerCase().includes(searchLower) ||
+            name.toLowerCase().includes(searchLower) ||
+            status.toLowerCase().includes(searchLower)
+          );
+        })
+      );
+    }
+  }, [searchInput, reservations]);
+
+  const fetchReservations = async (ignoreDateFilters = false) => {
     try {
       setLoading(true);
-      const response = await getAllReservations({
+      const filters: any = {
         page: currentPage,
         limit: itemsPerPage,
-        search: searchQuery,
-        date_from: dateFrom,
-        date_to: dateTo
-      });
+      };
+      if (!ignoreDateFilters) {
+        if (dateFrom) filters.date_from = dateFrom;
+        if (dateTo) filters.date_to = dateTo;
+      }
+      const response = await getAllReservations(filters);
       setReservations(response.data.reservations);
       setPagination(response.data.pagination);
       setError(null);
@@ -80,15 +106,13 @@ function Reservations() {
     }
   };
 
-  const handleSearch = () => {
-    setSearchQuery(searchInput);
-    setCurrentPage(1);
-  };
+  // Removed handleSearch, search is now client-side
 
   const handleClearFilters = () => {
     setDateFrom('');
     setDateTo('');
     setCurrentPage(1);
+    fetchReservations(true);
   };
 
   const formatDate = (dateString: string) => {
@@ -114,16 +138,19 @@ function Reservations() {
         return 'bg-yellow-100 text-yellow-800';
       case 'approved':
         return 'bg-green-100 text-green-800';
-      case 'rejected':
+      case 'cancelled':
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const handleApprove = async (reservationId: string) => {
+  const handleApprove = async () => {
+    if (!approveTargetId) return;
     try {
-      await approveReservation(reservationId);
+      await approveReservation(approveTargetId);
+      setShowApproveDialog(false);
+      setApproveTargetId(null);
       await fetchReservations();
     } catch (err) {
       console.error('Failed to approve reservation:', err);
@@ -156,18 +183,11 @@ function Reservations() {
         <div className="flex items-center gap-3 mb-6">
           <input
             type="text"
-            placeholder="Search"
+            placeholder="Search ID, name, and status..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
           />
-          <button 
-            onClick={handleSearch}
-            className="bg-indigo-700 hover:bg-indigo-800 text-white px-6 py-2 rounded-lg text-sm font-medium"
-          >
-            Go
-          </button>
           <div className="relative">
             <button 
               onClick={() => setShowFilterDropdown(!showFilterDropdown)}
@@ -208,6 +228,7 @@ function Reservations() {
                       onClick={() => {
                         setCurrentPage(1);
                         setShowFilterDropdown(false);
+                        fetchReservations(false);
                       }}
                       className="flex-1 bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium"
                     >
@@ -249,7 +270,10 @@ function Reservations() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto relative min-h-[400px]">
+        <div
+          className="overflow-x-auto relative"
+          style={{ minHeight: loading ? 400 : Math.max(200, filteredReservations.length * 56 + 120) }}
+        >
           {loading && (
             <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
               <div className="flex flex-col items-center gap-3">
@@ -277,9 +301,9 @@ function Reservations() {
               </tr>
             </thead>
             <tbody>
-              {!loading && !error && reservations.map((reservation, index) => (
+              {!loading && !error && filteredReservations.length > 0 && filteredReservations.map((reservation) => (
                 <tr key={reservation.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-4 px-4 text-sm text-gray-800">{index + 1}</td>
+                  <td className="py-4 px-4 text-sm text-gray-800">{reservation.reservation_number}</td>
                   <td className="py-4 px-4 text-sm text-gray-800">
                     {reservation.user_id.firstname} {reservation.user_id.lastname}
                   </td>
@@ -300,28 +324,84 @@ function Reservations() {
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => handleApprove(reservation.id)}
-                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs font-medium disabled:opacity-50"
-                        disabled={reservation.status !== 'pending'}
-                      >
-                        Approve
-                      </button>
-                      <button 
+                      {reservation.status !== 'pending' ? (
+                        <svg
+                          className="w-5 h-5 text-green-700"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setApproveTargetId(reservation.id);
+                            setShowApproveDialog(true);
+                          }}
+                          className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs font-medium disabled:opacity-50"
+                          disabled={reservation.status !== 'pending'}
+                        >
+                          Approve
+                        </button>
+                      )}
+
+                      {/* Approve Confirmation Dialog (Headless UI) */}
+                      <Dialog open={showApproveDialog} onClose={() => { setShowApproveDialog(false); setApproveTargetId(null); }} className="relative z-50">
+                        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+                        <div className="fixed inset-0 flex items-center justify-center p-4">
+                          <DialogPanel className="mx-auto max-w-sm w-full bg-white rounded-xl shadow-xl">
+                            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                              <DialogTitle className="text-lg font-bold text-gray-800">Confirm Approval</DialogTitle>
+                              <button
+                                onClick={() => { setShowApproveDialog(false); setApproveTargetId(null); }}
+                                className="text-gray-400 hover:text-gray-600"
+                              >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                            <div className="p-4">
+                              <p className="text-gray-700 mb-6">Are you sure you want to approve this reservation?</p>
+                              <div className="flex gap-3 justify-end">
+                                <button
+                                  onClick={() => { setShowApproveDialog(false); setApproveTargetId(null); }}
+                                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={handleApprove}
+                                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
+                                >
+                                  Confirm
+                                </button>
+                              </div>
+                            </div>
+                          </DialogPanel>
+                        </div>
+                      </Dialog>
+                      {/* <button 
                         onClick={() => handleReject(reservation.id)}
                         className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-medium disabled:opacity-50"
                         disabled={reservation.status !== 'pending'}
                       >
                         Reject
-                      </button>
+                      </button> */}
                     </div>
                   </td>
                 </tr>
               ))}
-              {!loading && !error && reservations.length === 0 && (
+              {!loading && !error && filteredReservations.length === 0 && (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-gray-500">
-                    No reservations found
+                    No matching results found
                   </td>
                 </tr>
               )}

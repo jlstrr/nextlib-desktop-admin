@@ -30,6 +30,10 @@ interface ApiResponse {
 
 function Computers() {
   const [computers, setComputers] = useState<Computer[]>([]);
+  const [selectedComputers, setSelectedComputers] = useState<string[]>([]);
+  const [isBulkLocking, setIsBulkLocking] = useState(false);
+  const [isBulkUnlocking, setIsBulkUnlocking] = useState(false);
+  const [isBulkMaintaining, setIsBulkMaintaining] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedComputer, setSelectedComputer] = useState<Computer | null>(null);
@@ -176,6 +180,86 @@ function Computers() {
     setShowDialog(true);
   };
 
+  const handleSelectComputer = (id: string) => {
+    setSelectedComputers(prev =>
+      prev.includes(id) ? prev.filter(cid => cid !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedComputers.length === computers.length) {
+      setSelectedComputers([]);
+    } else {
+      setSelectedComputers(computers.map(c => c.id));
+    }
+  };
+
+  const handleBulkLock = async () => {
+    if (selectedComputers.length === 0) return;
+    setIsBulkLocking(true);
+    try {
+      await Promise.all(
+        selectedComputers.map(id => {
+          const comp = computers.find(c => c.id === id);
+          if (comp && comp.status.toLowerCase() !== 'locked') {
+            return updateComputerStatus(id, 'locked');
+          }
+          return Promise.resolve();
+        })
+      );
+      setSelectedComputers([]);
+      fetchComputers();
+    } catch (err) {
+      alert('Failed to lock selected computers.');
+    } finally {
+      setIsBulkLocking(false);
+    }
+  };
+
+  const handleBulkUnlock = async () => {
+    if (selectedComputers.length === 0) return;
+    setIsBulkUnlocking(true);
+    try {
+      await Promise.all(
+        selectedComputers.map(id => {
+          const comp = computers.find(c => c.id === id);
+          if (comp && comp.status.toLowerCase() === 'locked') {
+            return updateComputerStatus(id, 'available');
+          }
+          return Promise.resolve();
+        })
+      );
+      setSelectedComputers([]);
+      fetchComputers();
+    } catch (err) {
+      alert('Failed to unlock selected computers.');
+    } finally {
+      setIsBulkUnlocking(false);
+    }
+  };
+
+  const handleBulkMaintenance = async () => {
+    if (selectedComputers.length === 0) return;
+    setIsBulkMaintaining(true);
+    try {
+      await Promise.all(
+        selectedComputers.map(id => {
+          const comp = computers.find(c => c.id === id);
+          if (comp && comp.status.toLowerCase() !== 'maintenance') {
+            return updateComputerStatus(id, 'maintenance');
+          }
+          return Promise.resolve();
+        })
+      );
+      setSelectedComputers([]);
+      fetchComputers();
+    } catch (err) {
+      alert('Failed to set maintenance for selected computers.');
+    } finally {
+      setIsBulkMaintaining(false);
+    }
+  };
+
   const closeDialog = () => {
     setShowDialog(false);
     setSelectedComputer(null);
@@ -276,6 +360,44 @@ function Computers() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-4 mb-2">
+        <button
+          onClick={handleSelectAll}
+          className="px-3 py-1 bg-gray-100 rounded text-sm border border-gray-300 hover:bg-gray-200"
+        >
+          {selectedComputers.length === computers.length ? 'Deselect All' : 'Select All'}
+        </button>
+        <button
+          onClick={handleBulkLock}
+          disabled={selectedComputers.length === 0 || isBulkLocking}
+          className={`px-3 py-1 bg-red-600 text-white rounded text-sm font-medium border border-red-700 hover:bg-red-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          {isBulkLocking ? (
+            <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+          ) : null}
+          Lock Selected ({selectedComputers.length})
+        </button>
+        <button
+          onClick={handleBulkUnlock}
+          disabled={selectedComputers.length === 0 || isBulkUnlocking}
+          className={`px-3 py-1 bg-green-600 text-white rounded text-sm font-medium border border-green-700 hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          {isBulkUnlocking ? (
+            <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+          ) : null}
+          Unlock Selected ({selectedComputers.length})
+        </button>
+        <button
+          onClick={handleBulkMaintenance}
+          disabled={selectedComputers.length === 0 || isBulkMaintaining}
+          className={`px-3 py-1 bg-yellow-500 text-white rounded text-sm font-medium border border-yellow-600 hover:bg-yellow-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          {isBulkMaintaining ? (
+            <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+          ) : null}
+          Set Maintenance ({selectedComputers.length})
+        </button>
+      </div>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Computer Management</h1>
@@ -309,16 +431,27 @@ function Computers() {
                 {computers.map((computer) => (
                   <div
                     key={computer.id}
-                    onClick={() => handleComputerClick(computer)}
-                    onContextMenu={(e) => handleContextMenu(e, computer)}
-                    className={`flex flex-col items-center justify-center p-4 border-2 rounded-lg ${getStatusColor(computer.status)} bg-white hover:shadow-md transition-shadow cursor-pointer`}
+                    className={`relative flex flex-col items-center justify-center p-4 border-2 rounded-lg ${getStatusColor(computer.status)} bg-white hover:shadow-md transition-shadow cursor-pointer`}
                   >
-                    <svg className="w-12 h-12 text-gray-700 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <rect x="2" y="3" width="20" height="14" rx="2" strokeWidth="1.5" />
-                      <path d="M8 21h8" strokeWidth="1.5" strokeLinecap="round" />
-                      <path d="M12 17v4" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                    <span className="text-sm font-medium text-gray-700">{computer.pc_number}</span>
+                    <input
+                      type="checkbox"
+                      checked={selectedComputers.includes(computer.id)}
+                      onChange={() => handleSelectComputer(computer.id)}
+                      className="absolute top-2 left-2 w-4 h-4 accent-indigo-600 cursor-pointer"
+                      title="Select computer"
+                    />
+                    <div
+                      onClick={() => handleComputerClick(computer)}
+                      onContextMenu={(e) => handleContextMenu(e, computer)}
+                      className="w-full h-full flex flex-col items-center justify-center"
+                    >
+                      <svg className="w-12 h-12 text-gray-700 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <rect x="2" y="3" width="20" height="14" rx="2" strokeWidth="1.5" />
+                        <path d="M8 21h8" strokeWidth="1.5" strokeLinecap="round" />
+                        <path d="M12 17v4" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                      <span className="text-sm font-medium text-gray-700">{computer.pc_number}</span>
+                    </div>
                   </div>
                 ))}
               </div>
