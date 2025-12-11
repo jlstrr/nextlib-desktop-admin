@@ -296,6 +296,17 @@ function Computers() {
     }
   };
 
+  const handleSetAvailable = async (computer: Computer) => {
+    try {
+      await updateComputerStatus(computer.id, 'available');
+      fetchComputers();
+      setContextMenu(null);
+    } catch (err) {
+      console.error('Failed to set as available:', err);
+      alert(err instanceof Error ? err.message : 'Failed to set as available');
+    }
+  };
+
   const handleMaintenance = async (computer: Computer) => {
     try {
       await updateComputerStatus(computer.id, 'maintenance');
@@ -326,14 +337,11 @@ function Computers() {
     switch (status.toLowerCase()) {
       case 'available':
         return 'border-green-500';
-      case 'occupied':
-        return 'border-blue-500';
       case 'reserved':
         return 'border-purple-500';
       case 'maintenance':
         return 'border-yellow-500';
       case 'locked':
-      case 'out_of_order':
         return 'border-red-500';
       default:
         return 'border-gray-300';
@@ -341,63 +349,29 @@ function Computers() {
   };
 
   const getStatusLabel = (status: string) => {
-    if (status.toLowerCase() === 'out_of_order') {
-      return 'Out of Order';
-    }
     return status.charAt(0).toUpperCase() + status.slice(1);
+  };
+
+  const getStatusBadgeClass = (status: string) => {
+    const s = status.toLowerCase();
+    if (s === 'available') return 'bg-green-100 text-green-800';
+    if (s === 'reserved') return 'bg-purple-100 text-purple-800';
+    if (s === 'maintenance') return 'bg-yellow-100 text-yellow-800';
+    if (s === 'locked') return 'bg-red-100 text-red-800';
+    return 'bg-gray-100 text-gray-800';
   };
 
   const usageCounts = {
     available: computers.filter(c => c.status.toLowerCase() === 'available').length,
-    occupied: computers.filter(c => c.status.toLowerCase() === 'occupied').length,
     reserved: computers.filter(c => c.status.toLowerCase() === 'reserved').length,
     maintenance: computers.filter(c => c.status.toLowerCase() === 'maintenance').length,
     locked: computers.filter(c => c.status.toLowerCase() === 'locked').length,
-    out_of_order: computers.filter(c => c.status.toLowerCase() === 'out_of_order').length,
   };
 
   const totalInUse = computers.length - usageCounts.available;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4 mb-2">
-        <button
-          onClick={handleSelectAll}
-          className="px-3 py-1 bg-gray-100 rounded text-sm border border-gray-300 hover:bg-gray-200"
-        >
-          {selectedComputers.length === computers.length ? 'Deselect All' : 'Select All'}
-        </button>
-        <button
-          onClick={handleBulkLock}
-          disabled={selectedComputers.length === 0 || isBulkLocking}
-          className={`px-3 py-1 bg-red-600 text-white rounded text-sm font-medium border border-red-700 hover:bg-red-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
-        >
-          {isBulkLocking ? (
-            <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-          ) : null}
-          Lock Selected ({selectedComputers.length})
-        </button>
-        <button
-          onClick={handleBulkUnlock}
-          disabled={selectedComputers.length === 0 || isBulkUnlocking}
-          className={`px-3 py-1 bg-green-600 text-white rounded text-sm font-medium border border-green-700 hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
-        >
-          {isBulkUnlocking ? (
-            <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-          ) : null}
-          Unlock Selected ({selectedComputers.length})
-        </button>
-        <button
-          onClick={handleBulkMaintenance}
-          disabled={selectedComputers.length === 0 || isBulkMaintaining}
-          className={`px-3 py-1 bg-yellow-500 text-white rounded text-sm font-medium border border-yellow-600 hover:bg-yellow-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
-        >
-          {isBulkMaintaining ? (
-            <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-          ) : null}
-          Set Maintenance ({selectedComputers.length})
-        </button>
-      </div>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Computer Management</h1>
@@ -407,6 +381,8 @@ function Computers() {
           Add New Computer
         </button>
       </div>
+
+      
 
       <div className="flex gap-6">
         <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -431,7 +407,7 @@ function Computers() {
                 {computers.map((computer) => (
                   <div
                     key={computer.id}
-                    className={`relative flex flex-col items-center justify-center p-4 border-2 rounded-lg ${getStatusColor(computer.status)} bg-white hover:shadow-md transition-shadow cursor-pointer`}
+                    className={`group relative flex flex-col items-center justify-center p-4 border-2 rounded-lg ${getStatusColor(computer.status)} bg-white hover:shadow-md transition-all cursor-pointer ${selectedComputers.includes(computer.id) ? 'ring-2 ring-indigo-500' : ''}`}
                   >
                     <input
                       type="checkbox"
@@ -440,17 +416,20 @@ function Computers() {
                       className="absolute top-2 left-2 w-4 h-4 accent-indigo-600 cursor-pointer"
                       title="Select computer"
                     />
+                    <span className={`absolute top-2 right-2 px-2 py-0.5 text-xs font-medium rounded ${getStatusBadgeClass(computer.status)}`}>
+                      {getStatusLabel(computer.status)}
+                    </span>
                     <div
                       onClick={() => handleComputerClick(computer)}
                       onContextMenu={(e) => handleContextMenu(e, computer)}
                       className="w-full h-full flex flex-col items-center justify-center"
                     >
-                      <svg className="w-12 h-12 text-gray-700 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-14 h-14 text-gray-700 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <rect x="2" y="3" width="20" height="14" rx="2" strokeWidth="1.5" />
                         <path d="M8 21h8" strokeWidth="1.5" strokeLinecap="round" />
                         <path d="M12 17v4" strokeWidth="1.5" strokeLinecap="round" />
                       </svg>
-                      <span className="text-sm font-medium text-gray-700">{computer.pc_number}</span>
+                      <span className="text-base font-semibold text-gray-800">{computer.pc_number}</span>
                     </div>
                   </div>
                 ))}
@@ -458,6 +437,55 @@ function Computers() {
               
               <div className="text-center text-xs text-gray-500 pt-4 border-t border-gray-200">
                 Pro tip: The boxes represent the computers. Click on it to display the details.
+              </div>
+
+              <div className="mt-6 flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={computers.length > 0 && selectedComputers.length === computers.length}
+                    onChange={handleSelectAll}
+                    className="w-4 h-4 accent-indigo-600 cursor-pointer"
+                  />
+                  {selectedComputers.length === computers.length ? 'Deselect All' : 'Select All'}
+                </label>
+
+                <Menu>
+                  <MenuButton
+                    disabled={selectedComputers.length === 0}
+                    className={`px-3 py-2 bg-indigo-600 text-white rounded text-sm font-medium border border-indigo-700 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    Bulk Actions ({selectedComputers.length})
+                  </MenuButton>
+                  <MenuItems anchor="top end" className="z-10 mt-2 w-52 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black/5 focus:outline-none">
+                    <div className="p-1">
+                      <MenuItem as="button"
+                        onClick={handleBulkLock}
+                        disabled={selectedComputers.length === 0 || isBulkLocking}
+                        className="group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-700 data-[focus]:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isBulkLocking ? <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600" /> : null}
+                        Lock Selected
+                      </MenuItem>
+                      <MenuItem as="button"
+                        onClick={handleBulkUnlock}
+                        disabled={selectedComputers.length === 0 || isBulkUnlocking}
+                        className="group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-700 data-[focus]:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isBulkUnlocking ? <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600" /> : null}
+                        Unlock Selected
+                      </MenuItem>
+                      <MenuItem as="button"
+                        onClick={handleBulkMaintenance}
+                        disabled={selectedComputers.length === 0 || isBulkMaintaining}
+                        className="group flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-700 data-[focus]:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isBulkMaintaining ? <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600" /> : null}
+                        Set Maintenance
+                      </MenuItem>
+                    </div>
+                  </MenuItems>
+                </Menu>
               </div>
             </>
           )}
@@ -476,14 +504,6 @@ function Computers() {
                 <span className="text-sm text-gray-700">Available</span>
               </div>
               <span className="text-sm font-medium text-gray-900">{usageCounts.available}</span>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-blue-500 rounded"></div>
-                <span className="text-sm text-gray-700">Occupied</span>
-              </div>
-              <span className="text-sm font-medium text-gray-900">{usageCounts.occupied}</span>
             </div>
             
             <div className="flex items-center justify-between">
@@ -508,14 +528,6 @@ function Computers() {
                 <span className="text-sm text-gray-700">Locked</span>
               </div>
               <span className="text-sm font-medium text-gray-900">{usageCounts.locked}</span>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-red-500 rounded"></div>
-                <span className="text-sm text-gray-700">Out of Order</span>
-              </div>
-              <span className="text-sm font-medium text-gray-900">{usageCounts.out_of_order}</span>
             </div>
           </div>
         </div>
@@ -556,11 +568,9 @@ function Computers() {
                 <label className="block text-sm font-medium text-gray-500 mb-1">Status</label>
                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                   selectedComputer.status.toLowerCase() === 'available' ? 'bg-green-100 text-green-800 capitalize' :
-                  selectedComputer.status.toLowerCase() === 'occupied' ? 'bg-blue-100 text-blue-800 capitalize' :
                   selectedComputer.status.toLowerCase() === 'reserved' ? 'bg-purple-100 text-purple-800 capitalize' :
                   selectedComputer.status.toLowerCase() === 'maintenance' ? 'bg-yellow-100 text-yellow-800 capitalize' :
                   selectedComputer.status.toLowerCase() === 'locked' ? 'bg-red-100 text-red-800 capitalize' :
-                  selectedComputer.status.toLowerCase() === 'out_of_order' ? 'bg-red-100 text-red-800' :
                   'bg-gray-100 text-gray-800 capitalize'
                 }`}>
                   {getStatusLabel(selectedComputer.status)}
@@ -639,18 +649,7 @@ function Computers() {
             </button>
           )}
           
-          {contextMenu.computer.status.toLowerCase() === 'locked' && (
-            <button
-              onClick={() => handleUnlock(contextMenu.computer)}
-              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-              </svg>
-              Unlock Computer
-            </button>
-          )}
-          
+
           <button
             onClick={() => handleMaintenance(contextMenu.computer)}
             className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
@@ -661,6 +660,18 @@ function Computers() {
             </svg>
             Set Maintenance
           </button>
+
+          {['locked', 'maintenance', 'reserved'].includes(contextMenu.computer.status.toLowerCase()) && (
+            <button
+              onClick={() => handleSetAvailable(contextMenu.computer)}
+              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+              </svg>
+              Unlock Computer
+            </button>
+          )}
           
           <div className="border-t border-gray-200 my-1"></div>
           
@@ -757,11 +768,9 @@ function Computers() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                   >
                     <option value="available">Available</option>
-                    <option value="occupied">Occupied</option>
                     <option value="reserved">Reserved</option>
                     <option value="maintenance">Maintenance</option>
                     <option value="locked">Locked</option>
-                    <option value="out_of_order">Out of Order</option>
                   </select>
                 </div>
 
@@ -878,11 +887,9 @@ function Computers() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                   >
                     <option value="available">Available</option>
-                    <option value="occupied">Occupied</option>
                     <option value="reserved">Reserved</option>
                     <option value="maintenance">Maintenance</option>
                     <option value="locked">Locked</option>
-                    <option value="out_of_order">Out of Order</option>
                   </select>
                 </div>
 

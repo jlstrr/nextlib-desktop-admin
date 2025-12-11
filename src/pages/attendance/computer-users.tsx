@@ -1,29 +1,36 @@
 import { useState, useEffect, useRef } from 'react';
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
-import { getAllAttendanceRecords } from '../api/attendance';
+import { getAllUsageHistory } from '../../api/usage-history';
 
-interface AttendanceLog {
-  _id: string;
-  id: string;
-  user_type: string;
-  name?: string;
-  address?: string;
-  id_number?: string;
+
+interface UsageHistoryLog {
+  reservation_id: string | null;
+  user_id: {
+    _id: string;
+    id_number: string;
+    firstname: string;
+    lastname: string;
+    email: string;
+  };
+  date: string;
+  time_in: string;
+  time_out: string;
+  duration: number;
   purpose: string;
+  status: string;
+  approved_by: {
+    _id: string;
+    firstname: string;
+    lastname: string;
+    username: string;
+  };
+  notes: string | null;
   isDeleted: boolean;
-  logged_at: string;
   createdAt: string;
   updatedAt: string;
-  user_data?: {
-    _id?: string;
-    id_number?: string;
-    firstname?: string;
-    middle_initial?: string;
-    lastname?: string;
-    program_course?: string;
-    email?: string;
-  } | null;
+  id: string;
+  calculated_duration: number;
 }
+
 
 interface PaginationData {
   current_page: number;
@@ -32,9 +39,9 @@ interface PaginationData {
   per_page: number;
 }
 
-function Attendance() {
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceLog[]>([]);
-  const [filteredRecords, setFilteredRecords] = useState<AttendanceLog[]>([]);
+function ComputerUsersPage() {
+  const [usageRecords, setUsageRecords] = useState<UsageHistoryLog[]>([]);
+  const [filteredRecords, setFilteredRecords] = useState<UsageHistoryLog[]>([]);
   const [tableSearch, setTableSearch] = useState('');
   const [pagination, setPagination] = useState<PaginationData>({
     current_page: 1,
@@ -43,7 +50,6 @@ function Attendance() {
     per_page: 10
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchInput, setSearchInput] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -52,57 +58,46 @@ function Attendance() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const tableRef = useRef<HTMLTableElement | null>(null);
-  const [showExportDialog, setShowExportDialog] = useState(false);
-  const [exportInsiders, setExportInsiders] = useState(true);
-  const [exportOutsiders, setExportOutsiders] = useState(true);
+  // Removed export dialog state and options
 
   useEffect(() => {
-    fetchAttendanceRecords();
+    fetchUsageRecords();
   }, [currentPage, itemsPerPage, searchQuery]);
 
   useEffect(() => {
     // Client-side search in displayed data
     if (!tableSearch) {
-      setFilteredRecords(attendanceRecords);
+      setFilteredRecords(usageRecords);
     } else {
       const searchLower = tableSearch.toLowerCase();
       setFilteredRecords(
-        attendanceRecords.filter(record => {
-          const name = record.user_type === 'visitor'
-            ? record.name || ''
-            : `${record.user_data?.firstname || ''} ${record.user_data?.lastname || ''}`;
-          const program = record.user_type === 'visitor'
-            ? record.address || ''
-            : record.user_data?.program_course || '';
+        usageRecords.filter(record => {
+          const name = `${record.user_id.firstname || ''} ${record.user_id.lastname || ''}`;
           return (
             name.toLowerCase().includes(searchLower) ||
-            program.toLowerCase().includes(searchLower) ||
-            (record.purpose || '').toLowerCase().includes(searchLower) ||
-            (record.id_number || '').toLowerCase().includes(searchLower)
+            (record.user_id.id_number || '').toLowerCase().includes(searchLower) ||
+            (record.purpose || '').toLowerCase().includes(searchLower)
           );
         })
       );
     }
-  }, [tableSearch, attendanceRecords]);
+  }, [tableSearch, usageRecords]);
 
-  const fetchAttendanceRecords = async (ignoreDateFilters = false) => {
+  const fetchUsageRecords = async (ignoreDateFilters = false) => {
     try {
       setLoading(true);
-      const filters: any = {
-        page: currentPage,
-        limit: itemsPerPage,
-        search: searchQuery,
-      };
-      if (!ignoreDateFilters) {
-        if (dateFrom) filters.date_from = dateFrom;
-        if (dateTo) filters.date_to = dateTo;
-      }
-      const response = await getAllAttendanceRecords(filters);
-      setAttendanceRecords(response.data.logs);
-      setPagination(response.data.pagination);
+      // getAllUsageHistory does not accept filters, so just call it
+      const response = await getAllUsageHistory();
+      setUsageRecords(response.data.usageHistories);
+      setPagination({
+        current_page: response.data.pagination.currentPage,
+        total_pages: response.data.pagination.totalPages,
+        total_logs: response.data.pagination.totalItems,
+        per_page: response.data.pagination.itemsPerPage,
+      });
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch attendance records');
+      setError(err instanceof Error ? err.message : 'Failed to fetch usage history');
     } finally {
       setLoading(false);
     }
@@ -114,14 +109,15 @@ function Attendance() {
   const handleClearFilters = () => {
     setDateFrom('');
     setDateTo('');
-    setSearchInput('');
     setSearchQuery('');
     setTableSearch('');
     setCurrentPage(1);
-    fetchAttendanceRecords(true);
+    fetchUsageRecords(true);
   };
 
+
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
       month: 'short',
@@ -130,52 +126,93 @@ function Attendance() {
     });
   };
 
-  const formatTime = (timeString: string) => {
-    if (!timeString) return 'N/A';
-    const date = new Date(timeString);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+  const formatTime = (time: string) => {
+    if (!time) return 'N/A';
+    // If time is already in HH:mm, just return it
+    if (/^\d{2}:\d{2}$/.test(time)) return time;
+    // Otherwise, try to parse as date string
+    const date = new Date(time);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+    return time;
   };
 
-  const buildExportHTML = (records: AttendanceLog[]) => {
-    const header = `<thead><tr><th style="text-align:left;padding:8px;border:1px solid #ddd;font-size:12px">No.</th><th style="text-align:left;padding:8px;border:1px solid #ddd;font-size:12px">Name</th><th style="text-align:left;padding:8px;border:1px solid #ddd;font-size:12px">Program / Address</th><th style="text-align:left;padding:8px;border:1px solid #ddd;font-size:12px">Time In</th><th style="text-align:left;padding:8px;border:1px solid #ddd;font-size:12px">Purpose</th><th style="text-align:left;padding:8px;border:1px solid #ddd;font-size:12px">User Type</th><th style="text-align:left;padding:8px;border:1px solid #ddd;font-size:12px">Date</th></tr></thead>`;
+
+  const buildExportHTML = (records: UsageHistoryLog[]) => {
+    const header = `<thead><tr><th style="text-align:left;padding:8px;border:1px solid #ddd;font-size:12px">No.</th><th style="text-align:left;padding:8px;border:1px solid #ddd;font-size:12px">Name</th><th style="text-align:left;padding:8px;border:1px solid #ddd;font-size:12px">ID Number</th><th style="text-align:left;padding:8px;border:1px solid #ddd;font-size:12px">Time In</th><th style="text-align:left;padding:8px;border:1px solid #ddd;font-size:12px">Time Out</th><th style="text-align:left;padding:8px;border:1px solid #ddd;font-size:12px">Purpose</th><th style="text-align:left;padding:8px;border:1px solid #ddd;font-size:12px">Date</th></tr></thead>`;
     const rows = records.map((record, idx) => {
-      const name = record.user_type === 'visitor'
-        ? (record.name || '—')
-        : (`${record.user_data?.firstname || ''} ${record.user_data?.lastname || ''}`.trim() || '—');
-      const idLine = record.user_type === 'student'
-        ? `<div style="font-size:10px;color:#6b7280">ID: ${record.id_number || record.user_data?.id_number || ''}</div>`
-        : '';
-      const programOrAddress = record.user_type === 'visitor'
-        ? (record.address || '—')
-        : (record.user_data?.program_course || '—');
-      const timeIn = formatTime(record.logged_at);
+      const name = `${record.user_id.firstname || ''} ${record.user_id.lastname || ''}`.trim() || '—';
+      const idNumber = record.user_id.id_number || '—';
+      const timeIn = formatTime(record.time_in);
+      const timeOut = formatTime(record.time_out);
       const purpose = (record.purpose || '').replace(/_/g, ' ');
-      const userType = record.user_type;
-      const date = formatDate(record.logged_at);
+      const date = formatDate(record.date);
       return `<tr>
         <td style="padding:8px;border:1px solid #ddd;font-size:12px">${idx + 1}</td>
-        <td style="padding:8px;border:1px solid #ddd;font-size:12px">${name}${idLine}</td>
-        <td style="padding:8px;border:1px solid #ddd;font-size:12px">${programOrAddress}</td>
+        <td style="padding:8px;border:1px solid #ddd;font-size:12px">${name}</td>
+        <td style="padding:8px;border:1px solid #ddd;font-size:12px">${idNumber}</td>
         <td style="padding:8px;border:1px solid #ddd;font-size:12px">${timeIn}</td>
+        <td style="padding:8px;border:1px solid #ddd;font-size:12px">${timeOut}</td>
         <td style="padding:8px;border:1px solid #ddd;font-size:12px">${purpose}</td>
-        <td style="padding:8px;border:1px solid #ddd;font-size:12px;text-transform:capitalize">${userType}</td>
         <td style="padding:8px;border:1px solid #ddd;font-size:12px">${date}</td>
       </tr>`;
     }).join('');
     const table = `<table style="width:100%;border-collapse:collapse">${header}<tbody>${rows}</tbody></table>`;
-    return `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>Attendance Records</title><style>body{font-family:Arial,sans-serif;padding:24px}h1{font-size:20px;margin-bottom:16px}thead th{background:#f3f4f6}tr:nth-child(even){background:#fafafb}</style></head><body><h1>Attendance Records</h1>${table}<script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}</script></body></html>`;
+    const adminDataRaw = typeof window !== 'undefined' ? localStorage.getItem('admin') : null;
+    const adminData = adminDataRaw ? JSON.parse(adminDataRaw) : null;
+    const adminName = adminData
+      ? [adminData.firstname, adminData.middle_initial ? `${adminData.middle_initial}.` : '', adminData.lastname]
+          .filter(Boolean)
+          .join(' ')
+      : 'Admin';
+    const today = new Date().toLocaleDateString();
+    const tableTitle = 'Computer Usage';
+    const dateRange = (dateFrom || dateTo)
+      ? `${dateFrom || '—'} to ${dateTo || '—'}`
+      : 'All dates';
+    const totalRecords = records.length;
+    const headerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1f2937;padding-bottom:12px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <img src="/ustp-logo.png" alt="USTP Logo" style="height:40px" />
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#111827;text-transform:uppercase">University of Science and Technology of Southern Philippines</div>
+            <div style="font-size:13px;font-weight:600;color:#4b5563;margin-top:2px">Jasaan, Misamis Oriental</div>
+          </div>
+        </div>
+        <img src="/favicon.png" alt="System Logo" style="height:40px" />
+      </div>
+    `;
+    const detailsHTML = `
+      <div style="font-size:12px;color:#374151;margin-bottom:16px">
+        <div><strong>Generated on:</strong> ${today}</div>
+        <div><strong>Date Range:</strong> ${dateRange}</div>
+        <div><strong>Total Records:</strong> ${totalRecords}</div>
+      </div>
+    `;
+    const titleHTML = `
+      <div style="font-size:18px;font-weight:700;color:#111827;margin-bottom:8px;text-align:center">${tableTitle}</div>
+    `;
+    const signatureHTML = `
+      <div style="margin-top:24px">
+        <div style="display:inline-block;text-align:center">
+          <div style="font-size:12px;color:#111827">${adminName}</div>
+          <div style="border-bottom:1px solid #111827;margin:6px 0"></div>
+          <div style="font-size:12px;color:#374151">E-Library In-charge</div>
+        </div>
+      </div>
+    `;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${tableTitle}</title><style>body{font-family:Arial,sans-serif;padding:24px}thead th{background:#f3f4f6}tr:nth-child(even){background:#fafafb}</style></head><body>${headerHTML}${detailsHTML}${titleHTML}${table}${signatureHTML}<script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}</script></body></html>`;
   };
 
   const performExportPDF = () => {
-    const selected = filteredRecords.filter(r => (
-      (exportInsiders && r.user_type === 'student') ||
-      (exportOutsiders && r.user_type === 'visitor')
-    ));
-    const html = buildExportHTML(selected);
+    // For now, export all filtered records (no user_type distinction in usage history)
+    const html = buildExportHTML(filteredRecords);
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.open();
@@ -184,51 +221,20 @@ function Attendance() {
   };
 
   return (
+
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Non-computer Usage</h1>
-          <p className="text-sm text-gray-500 mt-1">Dashboard / Attendance / Non-computer usage</p>
+          <h1 className="text-2xl font-bold text-gray-800">Computer Usage</h1>
+          <p className="text-sm text-gray-500 mt-1">Dashboard / Attendance / Computer usage</p>
         </div>
-        <button onClick={() => setShowExportDialog(true)} className="bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+        <button onClick={performExportPDF} className="bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 16l4-4m0 0l-4-4m4 4H8m8 4v1a2 2 0 01-2 2H10a2 2 0 01-2-2v-1" />
           </svg>
           Export PDF
         </button>
       </div>
-
-      <Dialog open={showExportDialog} onClose={() => setShowExportDialog(false)} className="relative z-50">
-        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <DialogPanel className="mx-auto max-w-sm w-full bg-white rounded-xl shadow-xl">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <DialogTitle className="text-lg font-bold text-gray-800">Export to PDF</DialogTitle>
-              <button onClick={() => setShowExportDialog(false)} className="text-gray-400 hover:text-gray-600">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="space-y-3">
-                <label className="flex items-center gap-3">
-                  <input type="checkbox" checked={exportInsiders} onChange={(e) => setExportInsiders(e.target.checked)} />
-                  <span className="text-sm text-gray-800">Insiders (Student)</span>
-                </label>
-                <label className="flex items-center gap-3">
-                  <input type="checkbox" checked={exportOutsiders} onChange={(e) => setExportOutsiders(e.target.checked)} />
-                  <span className="text-sm text-gray-800">Outsiders (Visitor)</span>
-                </label>
-              </div>
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-200">
-                <button onClick={() => setShowExportDialog(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
-                <button onClick={() => { setShowExportDialog(false); performExportPDF(); }} disabled={!exportInsiders && !exportOutsiders} className={`px-4 py-2 text-sm font-medium rounded-lg ${(!exportInsiders && !exportOutsiders) ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-indigo-700 text-white hover:bg-indigo-800'}`}>Export</button>
-              </div>
-            </div>
-          </DialogPanel>
-        </div>
-      </Dialog>
 
       <div className='bg-white p-6 rounded-lg shadow-sm border border-gray-200'>
         {/* Table Search and Filter Bar */}
@@ -325,7 +331,7 @@ function Attendance() {
                           onClick={() => {
                             setCurrentPage(1);
                             setShowFilterDropdown(false);
-                            fetchAttendanceRecords(false);
+                            fetchUsageRecords(false);
                           }}
                           className="flex-1 bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                         >
@@ -387,7 +393,7 @@ function Attendance() {
               <div className="text-center">
                 <p className="text-red-600 mb-2">Error: {error}</p>
                 <button 
-                  onClick={() => fetchAttendanceRecords()}
+                  onClick={() => fetchUsageRecords()}
                   className="text-indigo-700 hover:text-indigo-800 text-sm font-medium"
                 >
                   Try Again
@@ -400,57 +406,29 @@ function Attendance() {
               <tr>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">No.</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">Name</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">Program / Address</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">ID Number</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">Time In</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">Time Out</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">Purpose</th>
-                <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">User Type</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-gray-700 uppercase tracking-wider">Date</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {!loading && !error && filteredRecords.map((record, index) => (
-                <tr key={record._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {index + 1}
-                  </td>
-                  {/* <td className="px-6 py-4 text-sm text-gray-900">
-                    {record.user_type === 'student'
-                      ? record.id_number || record.user_data?.id_number || '—'
-                      : '—'}
-                  </td> */}
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                    {record.user_type === 'visitor'
-                      ? record.name
-                      : `${record.user_data?.firstname || ''} ${record.user_data?.lastname || ''}`.trim() || '—'}
-                    {record.user_type === 'student' && (
-                      <span className="block text-xs text-gray-500">
-                      ID: {record.id_number || record.user_data?.id_number || ''}
-                      </span>
-                    )}
-                    </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {record.user_type === 'visitor'
-                      ? record.address || '—'
-                      : record.user_data?.program_course || '—'}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {formatTime(record.logged_at)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {record.purpose.replace(/_/g, ' ')}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 capitalize">
-                    {record.user_type}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    {formatDate(record.logged_at)}
-                  </td>
+                <tr key={record.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm text-gray-900">{index + 1}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{record.user_id.firstname} {record.user_id.lastname}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{record.user_id.id_number}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{formatTime(record.time_in)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{formatTime(record.time_out)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{record.purpose}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{formatDate(record.date)}</td>
                 </tr>
               ))}
               {!loading && !error && filteredRecords.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-gray-500">
-                    No attendance records found
+                    No usage history records found
                   </td>
                 </tr>
               )}
@@ -501,4 +479,4 @@ function Attendance() {
   );
 }
 
-export default Attendance;
+export default ComputerUsersPage;

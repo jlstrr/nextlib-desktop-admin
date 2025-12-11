@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
-import { getAllAttendanceRecords } from '../api/attendance';
+import { getAllAttendanceRecords } from '../../api/attendance';
 
 interface AttendanceLog {
   _id: string;
@@ -32,7 +32,7 @@ interface PaginationData {
   per_page: number;
 }
 
-function Attendance() {
+function NonComputersUsersPage() {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceLog[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<AttendanceLog[]>([]);
   const [tableSearch, setTableSearch] = useState('');
@@ -167,7 +167,56 @@ function Attendance() {
       </tr>`;
     }).join('');
     const table = `<table style="width:100%;border-collapse:collapse">${header}<tbody>${rows}</tbody></table>`;
-    return `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>Attendance Records</title><style>body{font-family:Arial,sans-serif;padding:24px}h1{font-size:20px;margin-bottom:16px}thead th{background:#f3f4f6}tr:nth-child(even){background:#fafafb}</style></head><body><h1>Attendance Records</h1>${table}<script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}</script></body></html>`;
+    const adminDataRaw = typeof window !== 'undefined' ? localStorage.getItem('admin') : null;
+    const adminData = adminDataRaw ? JSON.parse(adminDataRaw) : null;
+    const adminName = adminData
+      ? [adminData.firstname, adminData.middle_initial ? `${adminData.middle_initial}.` : '', adminData.lastname]
+          .filter(Boolean)
+          .join(' ')
+      : 'Admin';
+    const today = new Date().toLocaleDateString();
+    const tableTitle = 'Attendance Records';
+    const dateRange = (dateFrom || dateTo)
+      ? `${dateFrom || '—'} to ${dateTo || '—'}`
+      : 'All dates';
+    const userTypesIncluded = [
+      exportInsiders ? 'Student' : null,
+      exportOutsiders ? 'Visitor' : null
+    ].filter(Boolean).join(', ') || 'None';
+    const totalRecords = records.length;
+    const headerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1f2937;padding-bottom:12px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <img src="/ustp-logo.png" alt="USTP Logo" style="height:40px" />
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#111827;text-transform:uppercase">University of Science and Technology of Southern Philippines</div>
+            <div style="font-size:13px;font-weight:600;color:#4b5563;margin-top:2px">Jasaan, Misamis Oriental</div>
+          </div>
+        </div>
+        <img src="/favicon.png" alt="System Logo" style="height:40px" />
+      </div>
+    `;
+    const detailsHTML = `
+      <div style="font-size:12px;color:#374151;margin-bottom:16px">
+        <div><strong>Generated on:</strong> ${today}</div>
+        <div><strong>Date Range:</strong> ${dateRange}</div>
+        <div><strong>User Types:</strong> ${userTypesIncluded}</div>
+        <div><strong>Total Records:</strong> ${totalRecords}</div>
+      </div>
+    `;
+    const titleHTML = `
+      <div style="font-size:18px;font-weight:700;color:#111827;margin-bottom:8px;text-align:center">${tableTitle}</div>
+    `;
+    const signatureHTML = `
+      <div style="margin-top:24px">
+        <div style="display:inline-block;text-align:center">
+          <div style="font-size:12px;color:#111827">${adminName}</div>
+          <div style="border-bottom:1px solid #111827;margin:6px 0"></div>
+          <div style="font-size:12px;color:#374151">E-Library In-charge</div>
+        </div>
+      </div>
+    `;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${tableTitle}</title><style>body{font-family:Arial,sans-serif;padding:24px}thead th{background:#f3f4f6}tr:nth-child(even){background:#fafafb}</style></head><body>${headerHTML}${detailsHTML}${titleHTML}${table}${signatureHTML}<script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}</script></body></html>`;
   };
 
   const performExportPDF = () => {
@@ -501,4 +550,4 @@ function Attendance() {
   );
 }
 
-export default Attendance;
+export default NonComputersUsersPage;

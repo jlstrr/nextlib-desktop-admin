@@ -93,3 +93,50 @@ export async function updateAdminProfile(profileData: any) {
     }
     return response.json();
 }
+
+export async function createAdmin(adminData: any) {
+    const response = await fetch(`${API_ENDPOINT}admin/register`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+        body: JSON.stringify(adminData),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to create admin');
+    }
+    return response.json();
+}
+
+export async function updateAdmin(adminId: string, adminData: any) {
+    const response = await fetch(`${API_ENDPOINT}admin/${adminId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+        body: JSON.stringify(adminData),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to update admin');
+    }
+    return response.json();
+}
+
+export async function deleteAdmin(adminId: string) {
+    const response = await fetch(`${API_ENDPOINT}admin/${adminId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete admin');
+    }
+    return response.json();
+}

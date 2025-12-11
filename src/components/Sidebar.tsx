@@ -1,8 +1,14 @@
+
 import { NavLink } from 'react-router-dom';
 import { useSidebar } from '../context/SidebarContext';
+import { useState } from 'react';
 
 function Sidebar() {
   const { isSidebarOpen, closeSidebar } = useSidebar();
+  const [attendanceDropdownOpen, setAttendanceDropdownOpen] = useState(false);
+  const adminData = localStorage.getItem('admin');
+  const admin = adminData ? JSON.parse(adminData) : null;
+  const isSuperAdmin = !!admin?.isSuperAdmin;
   const menuItems = [
     { 
       name: 'Dashboard', 
@@ -22,15 +28,15 @@ function Sidebar() {
         </svg>
       )
     },
-    // { 
-    //   name: 'Admin', 
-    //   path: '/admin', 
-    //   icon: (
-    //     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-    //       <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
-    //     </svg>
-    //   )
-    // },
+    { 
+      name: 'Admin', 
+      path: '/admin', 
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      )
+    },
     { 
       name: 'Computers', 
       path: '/computers', 
@@ -62,12 +68,15 @@ function Sidebar() {
         </svg>
       )
     },
+    // Attendance dropdown handled separately
     { 
-      name: 'Attendance', 
-      path: '/attendance', 
+      name: 'Subject Scheduler', 
+      path: '/subject-scheduler', 
       icon: (
+        // Calendar icon for Subject Scheduler
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
+          <rect x="3" y="6" width="18" height="15" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16 2v4M8 2v4M3 10h18" />
         </svg>
       )
     },
@@ -81,6 +90,10 @@ function Sidebar() {
       )
     },
   ];
+
+  const filteredMenuItems = isSuperAdmin
+    ? menuItems.filter((item) => ['Dashboard', 'Admin', 'Reports'].includes(item.name))
+    : menuItems.filter((item) => item.name !== 'Admin');
 
   return (
     <>
@@ -118,7 +131,7 @@ function Sidebar() {
           }`}>Menu</span>
         </div>
         <nav className="px-2 space-y-1">
-          {menuItems.map((item) => (
+          {filteredMenuItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
@@ -137,6 +150,49 @@ function Sidebar() {
               }`}>{item.name}</span>
             </NavLink>
           ))}
+
+          {/* Attendance Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              className={`flex items-center w-full ${isSidebarOpen ? 'space-x-3' : 'lg:justify-center'} px-4 py-2.5 rounded-lg transition-colors text-gray-600 hover:bg-gray-50 focus:outline-none`}
+              onClick={() => setAttendanceDropdownOpen((open) => !open)}
+              title={!isSidebarOpen ? 'Attendance' : undefined}
+            >
+              <span className="shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
+                </svg>
+              </span>
+              <span className={`font-medium text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ${
+                isSidebarOpen ? 'opacity-100 w-auto' : 'lg:opacity-0 lg:w-0'
+              }`}>Attendance</span>
+              <svg className={`w-4 h-4 ml-auto transition-transform ${attendanceDropdownOpen ? 'rotate-90' : ''} ${!isSidebarOpen ? 'hidden lg:inline' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            {/* Dropdown menu */}
+            <div
+              className={`pl-10 pr-2 mt-1 space-y-1 ${attendanceDropdownOpen ? 'block' : 'hidden'}`}
+            >
+              <NavLink
+                to="/attendance/computer-users"
+                className={({ isActive }) =>
+                  `block px-2 py-1 rounded transition-colors text-sm ${
+                    isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'
+                  }`
+                }
+              >Computer Usage</NavLink>
+              <NavLink
+                to="/attendance/non-computer-users"
+                className={({ isActive }) =>
+                  `block px-2 py-1 rounded transition-colors text-sm ${
+                    isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'
+                  }`
+                }
+              >Non Computer Usage</NavLink>
+            </div>
+          </div>
         </nav>
       </div>
     </div>

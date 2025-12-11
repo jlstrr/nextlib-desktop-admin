@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getAllAdmins } from '../api/admin';
+import { Dialog, DialogPanel, DialogTitle, Switch } from '@headlessui/react';
+import { getAllAdmins, createAdmin, updateAdmin, deleteAdmin } from '../api/admin';
 
 interface Admin {
   _id: string;
@@ -46,6 +47,34 @@ function Admin() {
   const [dateTo, setDateTo] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
+  const [createForm, setCreateForm] = useState({
+    firstname: '',
+    middle_initial: '',
+    lastname: '',
+    username: '',
+    email: '',
+    password: '',
+    isSuperAdmin: false,
+  });
+  const [editForm, setEditForm] = useState({
+    firstname: '',
+    middle_initial: '',
+    lastname: '',
+    username: '',
+    email: '',
+    isSuperAdmin: false,
+    password: '',
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertVariant, setAlertVariant] = useState<'error' | 'success' | 'info'>('info');
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [adminIdToRemove, setAdminIdToRemove] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAdmins();
@@ -72,26 +101,70 @@ function Admin() {
   };
 
   const handleEdit = (adminId: string) => {
-    console.log('Edit admin:', adminId);
-    // TODO: Implement edit functionality
+    const admin = admins.find(a => a._id === adminId) || null;
+    if (!admin) return;
+    setSelectedAdmin(admin);
+    setEditForm({
+      firstname: admin.firstname || '',
+      middle_initial: admin.middle_initial || '',
+      lastname: admin.lastname || '',
+      username: admin.username || '',
+      email: admin.email || '',
+      isSuperAdmin: !!admin.isSuperAdmin,
+      password: '',
+    });
+    setIsEditDialogOpen(true);
   };
 
   const handleRemove = (adminId: string) => {
-    console.log('Remove admin:', adminId);
-    // TODO: Implement remove functionality
+    setAdminIdToRemove(adminId);
+    setIsConfirmOpen(true);
+  };
+
+  const confirmRemove = async () => {
+    if (!adminIdToRemove) return;
+    try {
+      await deleteAdmin(adminIdToRemove);
+      setIsConfirmOpen(false);
+      setAdminIdToRemove(null);
+      await fetchAdmins();
+    } catch (err) {
+      setIsConfirmOpen(false);
+      setAlertTitle('Error');
+      setAlertMessage(err instanceof Error ? err.message : 'Failed to delete admin');
+      setAlertVariant('error');
+      setIsAlertOpen(true);
+    }
   };
 
   const handleAddNewAdmin = () => {
-    console.log('Add new admin');
-    // TODO: Implement add new admin functionality
+    setCreateForm({
+      firstname: '',
+      middle_initial: '',
+      lastname: '',
+      username: '',
+      email: '',
+      password: '',
+      isSuperAdmin: false,
+    });
+    setIsCreateDialogOpen(true);
   };
 
   const getFullName = (admin: Admin) => {
-    return `${admin.firstname} ${admin.middle_initial}. ${admin.lastname}`;
+    return `${admin.firstname} ${admin.middle_initial ? `${admin.middle_initial}. ` : ''}${admin.lastname}`;
   };
 
   const getPermissionLabel = (admin: Admin) => {
     return admin.isSuperAdmin ? 'Super Admin' : 'Admin';
+  };
+
+  const getStatusBadgeClasses = (status: string) => {
+    const s = (status || '').toLowerCase();
+    if (s === 'active') return 'bg-green-100 text-green-800';
+    if (s === 'inactive') return 'bg-gray-200 text-gray-700';
+    if (s === 'pending') return 'bg-yellow-100 text-yellow-800';
+    if (s === 'disabled') return 'bg-red-100 text-red-800';
+    return 'bg-gray-100 text-gray-800';
   };
 
   const handleClearFilters = () => {
@@ -116,7 +189,221 @@ function Admin() {
           Add New Admin
         </button>
       </div>
-      
+
+      <Dialog open={isCreateDialogOpen} onClose={() => !isSubmitting && setIsCreateDialogOpen(false)} className="relative z-50">
+        <div className="fixed inset-0 bg-black/30" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+            <DialogTitle className="text-lg font-semibold text-gray-800">Add New Admin</DialogTitle>
+            <div className="mt-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                  <input value={createForm.firstname} onChange={(e) => setCreateForm({ ...createForm, firstname: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Middle Initial (Optional)</label>
+                  <input value={createForm.middle_initial} onChange={(e) => setCreateForm({ ...createForm, middle_initial: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <input value={createForm.lastname} onChange={(e) => setCreateForm({ ...createForm, lastname: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                  <input value={createForm.username} onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input type="email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <input type="password" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">Super Admin</span>
+                  <Switch
+                    checked={createForm.isSuperAdmin}
+                    onChange={(val) => setCreateForm({ ...createForm, isSuperAdmin: val })}
+                    className={`${createForm.isSuperAdmin ? 'bg-indigo-600' : 'bg-gray-200'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+                  >
+                    <span className="sr-only">Super Admin</span>
+                    <span
+                      aria-hidden
+                      className={`${createForm.isSuperAdmin ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition`}
+                    />
+                  </Switch>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button disabled={isSubmitting} onClick={() => setIsCreateDialogOpen(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+              <button disabled={isSubmitting} onClick={async () => {
+                if (!createForm.firstname || !createForm.lastname || !createForm.username || !createForm.email || !createForm.password) {
+                  setAlertTitle('Validation');
+                  setAlertMessage('Please fill in all required fields');
+                  setAlertVariant('error');
+                  setIsAlertOpen(true);
+                  return;
+                }
+                setIsSubmitting(true);
+                try {
+                  await createAdmin(createForm);
+                  setIsCreateDialogOpen(false);
+                  await fetchAdmins();
+                } catch (err) {
+                  setAlertTitle('Error');
+                  setAlertMessage(err instanceof Error ? err.message : 'Failed to create admin');
+                  setAlertVariant('error');
+                  setIsAlertOpen(true);
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }} className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg text-sm font-medium disabled:opacity-50">Save</button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      <Dialog open={isConfirmOpen} onClose={() => setIsConfirmOpen(false)} className="relative z-50">
+        <div className="fixed inset-0 bg-black/30" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <DialogTitle className="text-lg font-semibold text-gray-800">Remove Admin</DialogTitle>
+            <div className="mt-2 text-sm text-gray-600">Are you sure you want to remove this admin?</div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setIsConfirmOpen(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button onClick={confirmRemove} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium">Remove</button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      <Dialog open={isAlertOpen} onClose={() => setIsAlertOpen(false)} className="relative z-50">
+        <div className="fixed inset-0 bg-black/30" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-start gap-3">
+              {alertVariant === 'error' && (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-red-600">
+                  <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm-.75 5.25a.75.75 0 011.5 0v6a.75.75 0 01-1.5 0v-6zm.75 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                </svg>
+              )}
+              {alertVariant === 'success' && (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-green-600">
+                  <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm-1.06 11.19l-2.12-2.12a.75.75 0 10-1.06 1.06l2.65 2.65c.293.293.768.293 1.06 0l5.3-5.3a.75.75 0 10-1.06-1.06l-4.77 4.77z" clipRule="evenodd" />
+                </svg>
+              )}
+              {alertVariant === 'info' && (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-indigo-600">
+                  <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 5.25a1 1 0 110 2 1 1 0 010-2zm-1 3.75a1 1 0 000 2h.5v4a1 1 0 002 0v-4a1 1 0 00-1-1h-1.5z" clipRule="evenodd" />
+                </svg>
+              )}
+              <div>
+                <DialogTitle className="text-lg font-semibold text-gray-800">{alertTitle}</DialogTitle>
+                <div className="mt-1 text-sm text-gray-600">{alertMessage}</div>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button onClick={() => setIsAlertOpen(false)} className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg text-sm font-medium">OK</button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onClose={() => !isSubmitting && setIsEditDialogOpen(false)} className="relative z-50">
+        <div className="fixed inset-0 bg-black/30" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+            <DialogTitle className="text-lg font-semibold text-gray-800">Edit Admin</DialogTitle>
+            <div className="mt-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                  <input value={editForm.firstname} onChange={(e) => setEditForm({ ...editForm, firstname: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Middle Initial (Optional)</label>
+                  <input value={editForm.middle_initial} onChange={(e) => setEditForm({ ...editForm, middle_initial: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <input value={editForm.lastname} onChange={(e) => setEditForm({ ...editForm, lastname: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                  <input value={editForm.username} onChange={(e) => setEditForm({ ...editForm, username: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <input type="password" value={editForm.password} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} placeholder="Leave blank to keep" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Permissions</label>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">Super Admin</span>
+                  <Switch
+                    checked={editForm.isSuperAdmin}
+                    onChange={(val) => setEditForm({ ...editForm, isSuperAdmin: val })}
+                    className={`${editForm.isSuperAdmin ? 'bg-indigo-600' : 'bg-gray-200'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+                  >
+                    <span className="sr-only">Super Admin</span>
+                    <span
+                      aria-hidden
+                      className={`${editForm.isSuperAdmin ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition`}
+                    />
+                  </Switch>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button disabled={isSubmitting} onClick={() => setIsEditDialogOpen(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+              <button disabled={isSubmitting || !selectedAdmin} onClick={async () => {
+                if (!selectedAdmin) return;
+                if (!editForm.firstname || !editForm.lastname || !editForm.username || !editForm.email) {
+                  setAlertTitle('Validation');
+                  setAlertMessage('Please fill in all required fields');
+                  setAlertVariant('error');
+                  setIsAlertOpen(true);
+                  return;
+                }
+                setIsSubmitting(true);
+                try {
+                  const payload: any = {
+                    firstname: editForm.firstname,
+                    middle_initial: editForm.middle_initial,
+                    lastname: editForm.lastname,
+                    username: editForm.username,
+                    email: editForm.email,
+                    isSuperAdmin: editForm.isSuperAdmin,
+                  };
+                  if (editForm.password) payload.password = editForm.password;
+                  await updateAdmin(selectedAdmin._id, payload);
+                  setIsEditDialogOpen(false);
+                  await fetchAdmins();
+                } catch (err) {
+                  setAlertTitle('Error');
+                  setAlertMessage(err instanceof Error ? err.message : 'Failed to update admin');
+                  setAlertVariant('error');
+                  setIsAlertOpen(true);
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }} className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg text-sm font-medium disabled:opacity-50">Save</button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
       {/* Search and Table Section */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         {/* Search Bar and Controls */}
@@ -256,9 +543,9 @@ function Admin() {
                     <td className="py-4 px-4 text-sm text-gray-800">{admin.email}</td>
                     <td className="py-4 px-4 text-sm text-gray-800">{getPermissionLabel(admin)}</td>
                     <td className="py-4 px-4">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 capitalize">
-                        {admin.status}
-                      </span>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium capitalize ${getStatusBadgeClasses(admin.status)}`}>
+                      {admin.status}
+                    </span>
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-2">

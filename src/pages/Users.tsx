@@ -4,6 +4,7 @@ import { RadioGroup } from '@headlessui/react';
 import * as XLSX from 'xlsx';
 import { getAllUsers, addUser, updateUser, deleteUser } from '../api/users';
 import { getCourses } from '../api/courses';
+import { getSystemDefault } from '../api/system-default';
 import { useNavigate } from 'react-router-dom';
 
 interface User {
@@ -65,6 +66,7 @@ function Users() {
     errors: Array<{ row: number; data: any; error: string }>
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importUserType, setImportUserType] = useState<'student' | 'faculty'>('student');
   const debounceTimerRef = useRef<number | null>(null);
   const [formData, setFormData] = useState<{
     id_number: string;
@@ -92,10 +94,11 @@ function Users() {
     '4th Year'
   ];
 
-  const [userTypeSelected, setUserTypeSelected] = useState('student');
+  const [userTypeSelected, setUserTypeSelected] = useState('all');
 
-  const DEFAULT_PASSWORD = 'password';
   const DEFAULT_REMAINING_TIME = '20:00:00';
+  const [systemDefaultTime, setSystemDefaultTime] = useState<string>(DEFAULT_REMAINING_TIME);
+  const getDefaultRemainingTime = () => systemDefaultTime || localStorage.getItem('default_allotted_time') || DEFAULT_REMAINING_TIME;
 
   const [programCourses, setProgramCourses] = useState<any[]>([]);
 
@@ -117,6 +120,20 @@ function Users() {
   useEffect(() => {
     fetchUsers();
   }, [currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    const fetchDefaultTime = async () => {
+      try {
+        const res = await getSystemDefault();
+        const t = res?.data?.default_allotted_time || DEFAULT_REMAINING_TIME;
+        setSystemDefaultTime(t);
+      } catch (e) {
+        const stored = localStorage.getItem('default_allotted_time');
+        setSystemDefaultTime(stored || DEFAULT_REMAINING_TIME);
+      }
+    };
+    fetchDefaultTime();
+  }, []);
 
   const fetchUsers = async () => {
     try {
@@ -224,7 +241,7 @@ function Users() {
         const newUserData = {
           ...userData,
           password: formData.lastname + "@" + formData.id_number,
-          remaining_time: formData.user_type === 'student' ? DEFAULT_REMAINING_TIME : null
+          remaining_time: formData.user_type === 'student' ? getDefaultRemainingTime() : null
         };
         await addUser(newUserData);
       }
@@ -284,7 +301,31 @@ function Users() {
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(worksheet);
-          setImportPreview(jsonData.slice(0, 5)); // Show first 5 rows as preview
+          // Filter columns based on importUserType
+          const previewData = jsonData.map((row: any) => {
+            if (importUserType === 'faculty') {
+              return {
+                id_number: row.id_number || row.ID || '',
+                firstname: row.firstname || row.first_name || row.Firstname || '',
+                middle_initial: row.middle_initial || row.MI || '',
+                lastname: row.lastname || row.last_name || row.Lastname || '',
+                email: row.email || row.Email || '',
+                user_type: row.user_type || row.type || 'faculty',
+              };
+            } else {
+              return {
+                id_number: row.id_number || row.ID || '',
+                firstname: row.firstname || row.first_name || row.Firstname || '',
+                middle_initial: row.middle_initial || row.MI || '',
+                lastname: row.lastname || row.last_name || row.Lastname || '',
+                program_course: row.program_course || row.program || row.course || '',
+                yearLevel: row.yearLevel || row.year_level || '',
+                email: row.email || row.Email || '',
+                user_type: row.user_type || row.type || 'student',
+              };
+            }
+          });
+          setImportPreview(previewData.slice(0, 5)); // Show first 5 rows as preview
         } catch (error) {
           console.error('Error reading file:', error);
           alert('Error reading Excel file. Please check the file format.');
@@ -296,7 +337,6 @@ function Users() {
 
   const handleConfirmImport = async () => {
     if (!importFile) return;
-    
     setIsImporting(true);
     try {
       const reader = new FileReader();
@@ -307,26 +347,38 @@ function Users() {
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
           const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet);
-          
           let successCount = 0;
           let failCount = 0;
           const failedRows: any[] = [];
-          
           // Process and import users
           for (let i = 0; i < jsonData.length; i++) {
             const row = jsonData[i];
-            const userData = {
-              id_number: row.id_number?.toString() || row.ID?.toString() || '',
-              firstname: row.firstname || row.first_name || row.Firstname || '',
-              middle_initial: row.middle_initial || row.MI || '',
-              lastname: row.lastname || row.last_name || row.Lastname || '',
-              program_course: row.program_course || row.program || row.course || '',
-              email: row.email || row.Email || '',
-              user_type: row.user_type || row.type || 'student',
-              password: row.lastname + "@" + row.id_number,
-              remaining_time: DEFAULT_REMAINING_TIME
-            };
-            
+            let userData;
+            if (importUserType === 'faculty') {
+              userData = {
+                id_number: row.id_number?.toString() || row.ID?.toString() || '',
+                firstname: row.firstname || row.first_name || row.Firstname || '',
+                middle_initial: row.middle_initial || row.MI || '',
+                lastname: row.lastname || row.last_name || row.Lastname || '',
+                email: row.email || row.Email || '',
+                user_type: 'faculty',
+                password: (row.lastname || row.last_name || row.Lastname || '') + "@" + (row.id_number?.toString() || row.ID?.toString() || ''),
+                remaining_time: null
+              };
+            } else {
+              userData = {
+                id_number: row.id_number?.toString() || row.ID?.toString() || '',
+                firstname: row.firstname || row.first_name || row.Firstname || '',
+                middle_initial: row.middle_initial || row.MI || '',
+                lastname: row.lastname || row.last_name || row.Lastname || '',
+                program_course: row.program_course || row.program || row.course || '',
+                yearLevel: row.yearLevel || row.year_level || '',
+                email: row.email || row.Email || '',
+                user_type: 'student',
+                password: (row.lastname || row.last_name || row.Lastname || '') + "@" + (row.id_number?.toString() || row.ID?.toString() || ''),
+                remaining_time: getDefaultRemainingTime()
+              };
+            }
             try {
               await addUser(userData);
               successCount++;
@@ -340,17 +392,14 @@ function Users() {
               console.error('Failed to import user:', userData, err);
             }
           }
-          
           handleCloseImportDialog();
           fetchUsers();
-          
           // Set import results to display in dialog
           setImportResult({
             success: successCount,
             failed: failCount,
             errors: failedRows
           });
-          
           // Reopen dialog to show results
           setIsImportDialogOpen(true);
         } catch (error) {
@@ -368,29 +417,50 @@ function Users() {
   };
 
   const handleDownloadTemplate = () => {
-    const template = [
-      {
-        id_number: '123456789',
-        firstname: 'John',
-        middle_initial: 'A',
-        lastname: 'Doe',
-        program_course: 'BSIT',
-        yearLevel: '1st Year',
-        email: 'john.doe@example.com',
-        user_type: 'student'
-      },
-      {
-        id_number: '987654321',
-        firstname: 'Jane',
-        middle_initial: 'B',
-        lastname: 'Smith',
-        program_course: 'BSCS',
-        yearLevel: '1st Year',
-        email: 'jane.smith@example.com',
-        user_type: 'student'
-      }
-    ];
-    
+    let template;
+    if (importUserType === 'faculty') {
+      template = [
+        {
+          id_number: 'EMP001',
+          firstname: 'Alice',
+          middle_initial: 'C',
+          lastname: 'Johnson',
+          email: 'alice.johnson@example.com',
+          user_type: 'faculty'
+        },
+        {
+          id_number: 'EMP002',
+          firstname: 'Bob',
+          middle_initial: 'D',
+          lastname: 'Williams',
+          email: 'bob.williams@example.com',
+          user_type: 'faculty'
+        }
+      ];
+    } else {
+      template = [
+        {
+          id_number: '123456789',
+          firstname: 'John',
+          middle_initial: 'A',
+          lastname: 'Doe',
+          program_course: 'BSIT',
+          yearLevel: '1st Year',
+          email: 'john.doe@example.com',
+          user_type: 'student'
+        },
+        {
+          id_number: '987654321',
+          firstname: 'Jane',
+          middle_initial: 'B',
+          lastname: 'Smith',
+          program_course: 'BSCS',
+          yearLevel: '1st Year',
+          email: 'jane.smith@example.com',
+          user_type: 'student'
+        }
+      ];
+    }
     const worksheet = XLSX.utils.json_to_sheet(template);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Users');
@@ -534,6 +604,13 @@ function Users() {
                   );
                   return matchesType && matchesSearch;
                 });
+
+                // Pagination logic for filtered users
+                const paginatedUsers = filteredUsers.slice(
+                  (currentPage - 1) * itemsPerPage,
+                  currentPage * itemsPerPage
+                );
+
                 if (filteredUsers.length === 0) {
                   return (
                     <tr>
@@ -558,9 +635,9 @@ function Users() {
                     </tr>
                   );
                 }
-                return filteredUsers.map((user, index) => (
+                return paginatedUsers.map((user, index) => (
                   <tr key={user._id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-4 px-4 text-sm text-gray-800">{((pagination.currentPage - 1) * pagination.itemsPerPage) + index + 1}</td>
+                    <td className="py-4 px-4 text-sm text-gray-800">{((currentPage - 1) * itemsPerPage) + index + 1}</td>
                     <td className="py-4 px-4 text-sm text-gray-800">
                       {user.firstname} {user.middle_initial ? `${user.middle_initial}. ` : ''}{user.lastname}
                     </td>
@@ -639,219 +716,192 @@ function Users() {
         </div>
       </div>
 
-      {/* Add User Dialog */}
-      <Dialog open={isDialogOpen} onClose={handleCloseDialog} className="relative z-50">
+      {/* Import Dialog */}
+      <Dialog open={isImportDialogOpen} onClose={handleCloseImportDialog} className="relative z-50">
         <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-        
         <div className="fixed inset-0 flex items-center justify-center p-4">
-          <DialogPanel className="mx-auto max-w-2xl w-full bg-white rounded-xl shadow-xl">
+          <DialogPanel className="mx-auto max-w-3xl w-full bg-white rounded-xl shadow-xl">
             <div className="p-6">
-              <DialogTitle className="text-xl font-bold text-gray-800 mb-6">
-                {isEditMode ? 'Edit User' : 'Add New User'}
+              <DialogTitle className="text-xl font-bold text-gray-800 mb-4">
+                Import Users from Excel
               </DialogTitle>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* User Type Selection - Headless UI RadioGroup with descriptions and responsive width */}
-                <div className="mb-4">
-                  {/* <label className="block text-sm font-medium text-gray-700 mb-2">User Type</label> */}
-                  <RadioGroup value={formData.user_type} onChange={value => setFormData(prev => ({ ...prev, user_type: value }))}>
-                    <div className="grid grid-cols-2 gap-4 w-full">
-                      {[
-                        {
-                          type: 'student',
-                          label: 'Student',
-                          description: 'For regular students using the system.'
-                        },
-                        {
-                          type: 'faculty',
-                          label: 'Faculty',
-                          description: 'For teachers, professors, and staff.'
-                        }
-                      ].map(option => (
-                        <RadioGroup.Option key={option.type} value={option.type} className={({ checked }) =>
-                          `flex flex-col items-start px-4 py-3 rounded-lg border transition-colors duration-150 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer w-full min-w-0 ${checked ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`
-                        }>
-                          {({ checked }) => (
-                            <>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className={`inline-block w-4 h-4 rounded-full border-2 ${checked ? 'bg-white border-white' : 'bg-gray-200 border-gray-400'}`}></span>
-                                <span className="font-semibold">{option.label}</span>
-                              </div>
-                              <span className={`text-xs ${checked ? 'text-indigo-100' : 'text-gray-500'}`}>{option.description}</span>
-                            </>
-                          )}
-                        </RadioGroup.Option>
-                      ))}
-                    </div>
-                  </RadioGroup>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {/* ID Number */}
-                  <div>
-                    <label htmlFor="id_number" className="block text-sm font-medium text-gray-700 mb-1">
-                      ID Number
-                    </label>
-                    <input
-                      type="number"
-                      id="id_number"
-                      name="id_number"
-                      value={formData.id_number}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                    />
-                  </div>
-
-                  {/* Email */}
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                    />
-                  </div>
-
-                  {/* First Name */}
-                  <div>
-                    <label htmlFor="firstname" className="block text-sm font-medium text-gray-700 mb-1">
-                      First Name
-                    </label>
-                    <input
-                      type="text"
-                      id="firstname"
-                      name="firstname"
-                      value={formData.firstname}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                    />
-                  </div>
-
-                  {/* Middle Initial */}
-                  <div>
-                    <label htmlFor="middle_initial" className="block text-sm font-medium text-gray-700 mb-1">
-                      Middle Initial (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      id="middle_initial"
-                      name="middle_initial"
-                      value={formData.middle_initial}
-                      onChange={handleInputChange}
-                      maxLength={1}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                    />
-                  </div>
-
-                  {/* Last Name */}
-                  <div>
-                    <label htmlFor="lastname" className="block text-sm font-medium text-gray-700 mb-1">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      id="lastname"
-                      name="lastname"
-                      value={formData.lastname}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                    />
-                  </div>
-
-                  {/* Year Level - only show for students */}
-                  {formData.user_type !== 'faculty' && (
-                    <div>
-                      <label htmlFor="yearLevel" className="block text-sm font-medium text-gray-700 mb-1">
-                        Year Level
-                      </label>
-                      <select
-                        id="yearLevel"
-                        name="yearLevel"
-                        value={formData.yearLevel}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                      >
-                        <option value="">Select year level</option>
-                        {yearLevels.map(level => (
-                          <option key={level} value={level}>{level}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Program/Course */}
-                  {formData.user_type !== 'faculty' && (
-                    <div>
-                      <div className='flex flex-row justify-between items-center mb-1'>
-                        <div className="flex flex-row justify-between">
-                          <label htmlFor="program_course" className="block text-sm font-medium text-gray-700 mb-1">
-                            Program/Course
-                          </label>
-                          <a
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              // alert('To add a new program/course, please go to the Courses Management section.');
-                              navigate('/settings');
-                            }}
-                            className="text-xs text-indigo-700 hover:underline ml-2 px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            tabIndex={0}
-                          >
-                            Add New
-                          </a>
-                        </div>
-                      </div>
-                      <select
-                        id="program_course"
-                        name="program_course"
-                        value={formData.program_course}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                      >
-                        <option value="">Select a program</option>
-                        {programCourses.length === 0 ? (
-                          <option disabled>Loading...</option>
-                        ) : (
-                          programCourses.map(course => (
-                            <option key={course._id} value={course.name}>{course.name}</option>
-                          ))
+              {/* User Type Selection for Import */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">User Type</label>
+                <RadioGroup value={importUserType} onChange={setImportUserType}>
+                  <div className="grid grid-cols-2 gap-4 w-full">
+                    {[
+                      {
+                        type: 'student',
+                        label: 'Student',
+                        description: 'For regular students using the system.'
+                      },
+                      {
+                        type: 'faculty',
+                        label: 'Faculty',
+                        description: 'For teachers, professors, and staff.'
+                      }
+                    ].map(option => (
+                      <RadioGroup.Option key={option.type} value={option.type} className={({ checked }) =>
+                        `flex flex-col items-start px-4 py-3 rounded-lg border transition-colors duration-150 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer w-full min-w-0 ${checked ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`
+                      }>
+                        {({ checked }) => (
+                          <>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`inline-block w-4 h-4 rounded-full border-2 ${checked ? 'bg-white border-white' : 'bg-gray-200 border-gray-400'}`}></span>
+                              <span className="font-semibold">{option.label}</span>
+                            </div>
+                            <span className={`text-xs ${checked ? 'text-indigo-100' : 'text-gray-500'}`}>{option.description}</span>
+                          </>
                         )}
-                      </select>
-                    </div>
-                  )}
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+                      </RadioGroup.Option>
+                    ))}
+                  </div>
+                </RadioGroup>
+              </div>
+              {/* Download Template Section */}
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-blue-900 mb-1">Need a template?</h3>
+                    <p className="text-xs text-blue-700">
+                      Download our Excel template with sample data and the correct format
+                    </p>
+                  </div>
                   <button
                     type="button"
-                    onClick={handleCloseDialog}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    onClick={handleDownloadTemplate}
+                    className="ml-4 px-3 py-1.5 text-xs font-medium text-blue-700 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 whitespace-nowrap"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-700 rounded-lg hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {isSubmitting && (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    )}
-                    {isSubmitting ? (isEditMode ? 'Updating...' : 'Adding...') : (isEditMode ? 'Update User' : 'Add User')}
+                    Download Template
                   </button>
                 </div>
-              </form>
+              </div>
+              <div className="mb-6">
+                <p className="text-sm text-gray-600 mb-4">
+                  Upload an Excel file (.xlsx, .xls) with the following columns:
+                  <span className="font-medium">
+                    {importUserType === 'faculty'
+                      ? ' id_number, firstname, middle_initial, lastname, email, user_type'
+                      : ' id_number, firstname, middle_initial, lastname, program_course, yearLevel, email, user_type'}
+                  </span>
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleFileChange}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                />
+              </div>
+              {importPreview.length > 0 && !importResult && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Preview (First 5 rows)</h3>
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto max-h-60">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50 sticky top-0">
+                          <tr>
+                            {Object.keys(importPreview[0]).map((key) => (
+                              <th key={key} className="px-3 py-2 text-left text-gray-600 font-semibold border-b">
+                                {key}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importPreview.map((row, index) => (
+                            <tr key={index} className="border-b border-gray-100">
+                              {Object.values(row).map((value: any, i) => (
+                                <td key={i} className="px-3 py-2 text-gray-700">
+                                  {value?.toString() || '-'}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Import Results */}
+              {importResult && (
+                <div className="mb-6">
+                  {importResult.failed === 0 ? (
+                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <svg className="w-5 h-5 text-green-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                          <h3 className="text-sm font-semibold text-green-900 mb-1">Import Successful!</h3>
+                          <p className="text-sm text-green-700">
+                            Successfully imported all {importResult.success} users.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <svg className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          <div className="flex-1">
+                            <h3 className="text-sm font-semibold text-yellow-900 mb-1">Import Completed with Errors</h3>
+                            <p className="text-sm text-yellow-700">
+                              ✓ Success: {importResult.success} | ✗ Failed: {importResult.failed}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="border border-red-200 rounded-lg overflow-hidden">
+                        <div className="bg-red-50 px-4 py-2 border-b border-red-200">
+                          <h4 className="text-sm font-semibold text-red-900">Failed Imports</h4>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto">
+                          {importResult.errors.map((error, index) => (
+                            <div key={index} className="px-4 py-3 border-b border-red-100 last:border-b-0">
+                              <div className="text-xs">
+                                <span className="font-semibold text-red-900">Row {error.row}:</span>
+                                <span className="text-gray-700 ml-2">
+                                  {error.data.firstname} {error.data.lastname}
+                                </span>
+                              </div>
+                              <div className="text-xs text-red-600 mt-1">{error.error}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={handleCloseImportDialog}
+                  disabled={isImporting}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {importResult ? 'Close' : 'Cancel'}
+                </button>
+                {!importResult && (
+                  <button
+                    type="button"
+                    onClick={handleConfirmImport}
+                    disabled={!importFile || isImporting}
+                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-700 rounded-lg hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isImporting && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    )}
+                    {isImporting ? 'Importing...' : 'Import Users'}
+                  </button>
+                )}
+              </div>
             </div>
           </DialogPanel>
         </div>
@@ -899,7 +949,7 @@ function Users() {
       </Dialog>
 
       {/* Import Dialog */}
-      <Dialog open={isImportDialogOpen} onClose={handleCloseImportDialog} className="relative z-50">
+      {/* <Dialog open={isImportDialogOpen} onClose={handleCloseImportDialog} className="relative z-50">
         <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
         
         <div className="fixed inset-0 flex items-center justify-center p-4">
@@ -909,7 +959,6 @@ function Users() {
                 Import Users from Excel
               </DialogTitle>
               
-              {/* Download Template Section */}
               <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -975,7 +1024,6 @@ function Users() {
                 </div>
               )}
 
-              {/* Import Results */}
               {importResult && (
                 <div className="mb-6">
                   {importResult.failed === 0 ? (
@@ -1057,7 +1105,7 @@ function Users() {
             </div>
           </DialogPanel>
         </div>
-      </Dialog>
+      </Dialog> */}
     </div>
   );
 }

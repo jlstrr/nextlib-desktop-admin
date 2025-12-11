@@ -159,7 +159,7 @@ function Header() {
             onClick={() => setShowDropdown(!showDropdown)}
             className="flex items-center space-x-3 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors"
           >
-            <div className="w-8 h-8 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+            <div className="w-8 h-8 rounded-full bg-[#201a50] flex items-center justify-center text-white font-semibold text-sm">
               {displayName.split(' ').map(n => n[0]).join('').slice(0, 2)}
             </div>
             <div className="text-left hidden md:block">

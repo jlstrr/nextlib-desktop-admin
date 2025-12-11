@@ -221,12 +221,6 @@ function Profile() {
             {/* Personal Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Personal Information</h3>
-              
-              <div>
-                <label className="text-sm font-medium text-gray-500">ID Number</label>
-                <p className="text-gray-800 mt-1">{admin.id_number}</p>
-              </div>
-              
               <div>
                 <label className="text-sm font-medium text-gray-500">First Name</label>
                 <p className="text-gray-800 mt-1">{admin.firstname}</p>
