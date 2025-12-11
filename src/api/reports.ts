@@ -1,4 +1,4 @@
-const API_ENDPOINT = 'https://api.nextlib-system.online/api/v1/';
+const API_ENDPOINT = 'http://localhost:4000/api/v1/';
 
 export async function getReports(type: string, queryString: string) {
     const url = `${API_ENDPOINT}usage-history/reports/${type}${queryString ? `?${queryString}` : ''}`;

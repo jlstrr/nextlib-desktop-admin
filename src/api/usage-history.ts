@@ -1,4 +1,4 @@
-const API_ENDPOINT = 'https://api.nextlib-system.online/api/v1/';
+const API_ENDPOINT = 'http://localhost:4000/api/v1/';
 
 export async function getAllUsageHistory() {
     const response = await fetch(`${API_ENDPOINT}usage-history`, {
