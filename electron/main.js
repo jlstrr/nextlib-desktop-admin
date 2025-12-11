@@ -13,8 +13,8 @@ function createWindow() {
     }
   });
     // Hide the menu bar
-    // win.setMenuBarVisibility(false);
-    // win.setMenu(null);
+    win.setMenuBarVisibility(false);
+    win.setMenu(null);
 
   if (isDev) {
     // Load Vite dev server

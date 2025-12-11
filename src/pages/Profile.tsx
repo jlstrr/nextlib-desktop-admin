@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
-import { getAdminProfile } from '../api/admin';
+import { getAdminProfile, updateAdmin, changePassword } from '../api/admin';
 
 interface Admin {
   _id: string;
@@ -20,16 +20,16 @@ function Profile() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     firstname: '',
     lastname: '',
-    email: '',
-    id_number: ''
+    email: ''
   });
   const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
+    new_password: '',
+    confirm_password: ''
   });
 
   useEffect(() => {
@@ -44,8 +44,7 @@ function Profile() {
       setFormData({
         firstname: response.data.firstname || '',
         lastname: response.data.lastname || '',
-        email: response.data.email || '',
-        id_number: response.data.username || ''
+        email: response.data.email || ''
       });
       setError(null);
     } catch (err) {
@@ -62,52 +61,57 @@ function Profile() {
   const handleSaveProfile = async () => {
     setIsSubmitting(true);
     try {
-      // TODO: Add API call to update admin profile
-      // await updateAdminProfile(admin._id, formData);
+      if (!admin) throw new Error('No admin loaded');
+      const payload: any = {
+        firstname: formData.firstname,
+        lastname: formData.lastname,
+        email: formData.email,
+      };
+      await updateAdmin(admin._id, payload);
+      const refreshed = await getAdminProfile();
+      setAdmin(refreshed.data);
+      setFormData({
+        firstname: refreshed.data.firstname || '',
+        lastname: refreshed.data.lastname || '',
+        email: refreshed.data.email || '',
+      });
       
       // Update localStorage
-      if (admin) {
-        const updatedAdmin = { ...admin, ...formData };
-        localStorage.setItem('admin', JSON.stringify(updatedAdmin));
-        setAdmin(updatedAdmin);
-      }
+      localStorage.setItem('admin', JSON.stringify(refreshed.data));
       
       setIsEditDialogOpen(false);
-      alert('Profile updated successfully');
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Failed to update profile');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleChangePassword = async () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
+    if (passwordData.new_password !== passwordData.confirm_password) {
       alert('New password and confirm password do not match');
       return;
     }
     
-    if (passwordData.newPassword.length < 6) {
+    if (passwordData.new_password.length < 6) {
       alert('Password must be at least 6 characters long');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // TODO: Add API call to change password
-      // await changeAdminPassword(admin._id, passwordData);
+      await changePassword({
+        new_password: passwordData.new_password,
+        confirm_password: passwordData.confirm_password,
+      });
       
       setIsPasswordDialogOpen(false);
       setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
+        new_password: '',
+        confirm_password: ''
       });
-      alert('Password changed successfully');
     } catch (error) {
       console.error('Error changing password:', error);
-      alert('Failed to change password');
     } finally {
       setIsSubmitting(false);
     }
@@ -172,14 +176,14 @@ function Profile() {
       {/* Profile Card */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         {/* Cover Photo */}
-        <div className="h-32 bg-linear-to-r from-indigo-500 to-purple-600 rounded-t-lg"></div>
+        <div className="h-32 bg-[#201a50] rounded-t-lg"></div>
         
         {/* Profile Info */}
         <div className="px-6 pb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-16 mb-6">
             {/* Avatar */}
             <div className="w-32 h-32 rounded-full bg-white p-2 shadow-lg">
-              <div className="w-full h-full rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-4xl font-bold">
+              <div className="w-full h-full rounded-full bg-[#201a50] flex items-center justify-center text-white text-4xl font-bold">
                 {admin.firstname[0]}{admin.lastname[0]}
               </div>
             </div>
@@ -192,11 +196,11 @@ function Profile() {
                     {admin.firstname} {admin.lastname}
                   </h2>
                   <p className="text-gray-600">{admin.email}</p>
-                  {admin.isSuperAdmin && (
+                  {/* {admin.isSuperAdmin && (
                     <span className="inline-block mt-2 px-3 py-1 bg-purple-100 text-purple-700 text-sm font-medium rounded-full">
                       Super Admin
                     </span>
-                  )}
+                  )} */}
                 </div>
                 <div className="flex gap-3">
                   <button
@@ -271,17 +275,6 @@ function Profile() {
               </DialogTitle>
               
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ID Number
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.id_number}
-                    onChange={(e) => setFormData({ ...formData, id_number: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -352,40 +345,65 @@ function Profile() {
               </DialogTitle>
               
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Current Password
-                  </label>
-                  <input
-                    type="password"
-                    value={passwordData.currentPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     New Password
                   </label>
-                  <input
-                    type="password"
-                    value={passwordData.newPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={passwordData.new_password}
+                      onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showNewPassword ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Confirm New Password
                   </label>
-                  <input
-                    type="password"
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={passwordData.confirm_password}
+                      onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showConfirmPassword ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 

@@ -377,9 +377,9 @@ function Computers() {
           <h1 className="text-2xl font-bold text-gray-800">Computer Management</h1>
           <p className="text-sm text-gray-500">Dashboard / Computer</p>
         </div>
-        <button onClick={handleAddNewComputer} className="bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
+        {/* <button onClick={handleAddNewComputer} className="bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
           Add New Computer
-        </button>
+        </button> */}
       </div>
 
       

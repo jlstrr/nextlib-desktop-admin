@@ -114,9 +114,11 @@ function Sidebar() {
         {/* Logo Section */}
         <div className="p-6">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-indigo-700 rounded-md flex items-center justify-center shrink-0">
-              <span className="text-white font-bold text-sm">NL</span>
-            </div>
+            <img
+              src="/favicon.png"
+              alt="App Icon"
+              className="w-8 h-8 rounded-md shrink-0"
+            />
             <span className={`font-bold text-lg text-gray-800 whitespace-nowrap overflow-hidden transition-all duration-300 ${
               isSidebarOpen ? 'opacity-100 w-auto' : 'lg:opacity-0 lg:w-0'
             }`}>NextLib System</span>

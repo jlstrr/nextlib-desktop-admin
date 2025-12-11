@@ -140,3 +140,19 @@ export async function deleteAdmin(adminId: string) {
     }
     return response.json();
 }
+
+export async function changePassword(passwordData: any) {
+    const response = await fetch(`${API_ENDPOINT}admin/change-password`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+        body: JSON.stringify(passwordData),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to change password');
+    }
+    return response.json();
+}

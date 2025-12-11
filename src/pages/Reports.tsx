@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getReports } from '../api/reports';
+import { getCourses } from '../api/courses';
 
 function Reports() {
   const [pendingReportType, setPendingReportType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
@@ -15,7 +16,12 @@ function Reports() {
   const [data, setData] = useState<any[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [loading, setLoading] = useState(false);
-
+  const [courses, setCourses] = useState<any[]>([]);
+  const [isCoursesLoading, setIsCoursesLoading] = useState(false);
+  const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
+  const [pendingDateFrom, setPendingDateFrom] = useState('');
+  const [pendingDateTo, setPendingDateTo] = useState('');
+  const dateFilterRef = useRef<HTMLDivElement | null>(null);
 
   // Only fetch data when Generate is clicked
   const fetchReports = async () => {
@@ -49,6 +55,53 @@ function Reports() {
     setPendingReportType(e.target.value as any);
     // No pagination
   };
+
+  const toggleDateDropdown = () => {
+    setPendingDateFrom(filters.date_from);
+    setPendingDateTo(filters.date_to);
+    setIsDateDropdownOpen((v) => !v);
+  };
+
+  const applyDateRange = () => {
+    setFilters((prev) => ({ ...prev, date_from: pendingDateFrom, date_to: pendingDateTo }));
+    setIsDateDropdownOpen(false);
+  };
+
+  const clearDateRange = () => {
+    setPendingDateFrom('');
+    setPendingDateTo('');
+    setFilters((prev) => ({ ...prev, date_from: '', date_to: '' }));
+    setIsDateDropdownOpen(false);
+  };
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      setIsCoursesLoading(true);
+      try {
+        const response = await getCourses();
+        if (response && Array.isArray(response.data)) {
+          setCourses(response.data);
+        }
+      } catch (err) {
+        setCourses([]);
+      } finally {
+        setIsCoursesLoading(false);
+      }
+    };
+    fetchCourses();
+  }, []);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (!isDateDropdownOpen) return;
+      const el = dateFilterRef.current;
+      if (el && !el.contains(e.target as Node)) {
+        setIsDateDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [isDateDropdownOpen]);
 
   // PDF Export Logic (adapted from ComputerUsersPage)
   const buildExportHTML = () => {
@@ -140,15 +193,16 @@ function Reports() {
       <div style="font-size:18px;font-weight:700;color:#111827;margin-bottom:8px;text-align:center">${tableTitle}</div>
     `;
     const signatureHTML = `
-      <div style="margin-top:24px">
+      <div class="signature" style="text-align:center">
         <div style="display:inline-block;text-align:center">
+          <div style="font-size:12px;color:#111827;margin-bottom:25px">Prepared by:</div>
           <div style="font-size:12px;color:#111827">${adminName}</div>
           <div style="border-bottom:1px solid #111827;margin:6px 0"></div>
           <div style="font-size:12px;color:#374151">E-Library In-charge</div>
         </div>
       </div>
     `;
-    return `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${tableTitle}</title><style>body{font-family:Arial,sans-serif;padding:24px}thead th{background:#f3f4f6}tr:nth-child(even){background:#fafafb}</style></head><body>${headerHTML}${detailsHTML}${titleHTML}${table}${signatureHTML}<script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}</script></body></html>`;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${tableTitle}</title><style>body{font-family:Arial,sans-serif;padding:24px;padding-bottom:120px}thead th{background:#f3f4f6}tr:nth-child(even){background:#fafafb}.signature{position:fixed;left:24px;right:24px;bottom:24px}</style></head><body>${headerHTML}${detailsHTML}${titleHTML}${table}${signatureHTML}<script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}</script></body></html>`;
   };
 
   const performExportPDF = () => {
@@ -184,15 +238,41 @@ function Reports() {
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
           </select>
-          <input name="user_id" value={filters.user_id} onChange={handleFilterChange} placeholder="User ID" className="px-3 py-2 border rounded text-sm" />
           <select name="user_type" value={filters.user_type} onChange={handleFilterChange} className="px-3 py-2 border rounded text-sm">
             <option value="">User Type</option>
             <option value="student">Student</option>
             <option value="faculty">Faculty</option>
           </select>
-          <input name="program" value={filters.program} onChange={handleFilterChange} placeholder="Program/Course" className="px-3 py-2 border rounded text-sm" />
-          <input name="date_from" type="date" value={filters.date_from} onChange={handleFilterChange} className="px-3 py-2 border rounded text-sm" />
-          <input name="date_to" type="date" value={filters.date_to} onChange={handleFilterChange} className="px-3 py-2 border rounded text-sm" />
+          <select name="program" value={filters.program} onChange={handleFilterChange} className="px-3 py-2 border rounded text-sm">
+            <option value="">Program/Course</option>
+            {isCoursesLoading ? (
+              <option disabled>Loading...</option>
+            ) : (
+              courses.map((c: any) => (
+                <option key={c._id ?? c.name} value={c.name}>{c.name}</option>
+              ))
+            )}
+          </select>
+          <div ref={dateFilterRef} className="relative">
+            <label className="text-sm font-medium mr-4">Date Filter:</label>
+            <button type="button" onClick={toggleDateDropdown} className="px-3 py-2 border rounded text-sm bg-white">
+              {(filters.date_from || filters.date_to) ? `${filters.date_from || '—'} to ${filters.date_to || '—'}` : 'Date Range'}
+            </button>
+            {isDateDropdownOpen && (
+              <div className="absolute z-10 mt-2 w-64 bg-white border border-gray-200 rounded shadow-md p-3">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">From:</label>
+                  <input type="date" value={pendingDateFrom} onChange={(e) => setPendingDateFrom(e.target.value)} className="px-3 py-2 border rounded text-sm" />
+                  <label className="text-sm font-medium">To:</label>
+                  <input type="date" value={pendingDateTo} onChange={(e) => setPendingDateTo(e.target.value)} className="px-3 py-2 border rounded text-sm" />
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button type="button" onClick={clearDateRange} className="px-3 py-1.5 border rounded text-sm">Clear</button>
+                    <button type="button" onClick={applyDateRange} className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded text-sm">Apply</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           <button onClick={fetchReports} className="bg-indigo-700 hover:bg-indigo-800 text-white px-6 py-2 rounded-lg text-sm font-medium ml-2">Generate</button>
         </div>
       </div>

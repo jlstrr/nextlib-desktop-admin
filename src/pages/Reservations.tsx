@@ -42,6 +42,7 @@ interface PaginationData {
 function Reservations() {
     const [showApproveDialog, setShowApproveDialog] = useState(false);
     const [approveTargetId, setApproveTargetId] = useState<string | null>(null);
+  const [isApproving, setIsApproving] = useState(false);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [pagination, setPagination] = useState<PaginationData>({
     currentPage: 1,
@@ -140,6 +141,10 @@ function Reservations() {
         return 'bg-green-100 text-green-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
+      case 'active':
+        return 'bg-blue-100 text-blue-800';
+      case 'completed':
+        return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -147,14 +152,18 @@ function Reservations() {
 
   const handleApprove = async () => {
     if (!approveTargetId) return;
+    setIsApproving(true);
     try {
       await approveReservation(approveTargetId);
       setShowApproveDialog(false);
       setApproveTargetId(null);
       await fetchReservations();
+      setError(null);
     } catch (err) {
       console.error('Failed to approve reservation:', err);
       setError(err instanceof Error ? err.message : 'Failed to approve reservation');
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -351,42 +360,7 @@ function Reservations() {
                         </button>
                       )}
 
-                      {/* Approve Confirmation Dialog (Headless UI) */}
-                      <Dialog open={showApproveDialog} onClose={() => { setShowApproveDialog(false); setApproveTargetId(null); }} className="relative z-50">
-                        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-                        <div className="fixed inset-0 flex items-center justify-center p-4">
-                          <DialogPanel className="mx-auto max-w-sm w-full bg-white rounded-xl shadow-xl">
-                            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                              <DialogTitle className="text-lg font-bold text-gray-800">Confirm Approval</DialogTitle>
-                              <button
-                                onClick={() => { setShowApproveDialog(false); setApproveTargetId(null); }}
-                                className="text-gray-400 hover:text-gray-600"
-                              >
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </div>
-                            <div className="p-4">
-                              <p className="text-gray-700 mb-6">Are you sure you want to approve this reservation?</p>
-                              <div className="flex gap-3 justify-end">
-                                <button
-                                  onClick={() => { setShowApproveDialog(false); setApproveTargetId(null); }}
-                                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  onClick={handleApprove}
-                                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
-                                >
-                                  Confirm
-                                </button>
-                              </div>
-                            </div>
-                          </DialogPanel>
-                        </div>
-                      </Dialog>
+                      
                       {/* <button 
                         onClick={() => handleReject(reservation.id)}
                         className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-medium disabled:opacity-50"
@@ -407,10 +381,10 @@ function Reservations() {
               )}
             </tbody>
           </table>
-        </div>
+      </div>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between mt-6">
+      {/* Pagination */}
+      <div className="flex items-center justify-between mt-6">
           <p className="text-sm text-gray-600">
             Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1}-
             {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems} reservations
@@ -443,9 +417,50 @@ function Reservations() {
             >
               Next
             </button>
-          </div>
         </div>
       </div>
+      </div>
+
+      <Dialog open={showApproveDialog} onClose={() => { setShowApproveDialog(false); setApproveTargetId(null); }} className="relative z-50">
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="mx-auto max-w-sm w-full bg-white rounded-xl shadow-xl">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <DialogTitle className="text-lg font-bold text-gray-800">Confirm Approval</DialogTitle>
+              <button
+                onClick={() => { setShowApproveDialog(false); setApproveTargetId(null); }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4">
+              <p className="text-gray-700 mb-6">Are you sure you want to approve this reservation?</p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => { setShowApproveDialog(false); setApproveTargetId(null); }}
+                  disabled={isApproving}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleApprove}
+                  disabled={isApproving}
+                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isApproving && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  )}
+                  {isApproving ? 'Approving...' : 'Confirm'}
+                </button>
+              </div>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
     </div>
   );
 }

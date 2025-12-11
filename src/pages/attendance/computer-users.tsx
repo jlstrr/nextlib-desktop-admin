@@ -199,15 +199,16 @@ function ComputerUsersPage() {
       <div style="font-size:18px;font-weight:700;color:#111827;margin-bottom:8px;text-align:center">${tableTitle}</div>
     `;
     const signatureHTML = `
-      <div style="margin-top:24px">
+      <div class="signature" style="text-align:center">
         <div style="display:inline-block;text-align:center">
+          <div style="font-size:12px;color:#111827;margin-bottom:25px">Prepared by:</div>
           <div style="font-size:12px;color:#111827">${adminName}</div>
           <div style="border-bottom:1px solid #111827;margin:6px 0"></div>
           <div style="font-size:12px;color:#374151">E-Library In-charge</div>
         </div>
       </div>
     `;
-    return `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${tableTitle}</title><style>body{font-family:Arial,sans-serif;padding:24px}thead th{background:#f3f4f6}tr:nth-child(even){background:#fafafb}</style></head><body>${headerHTML}${detailsHTML}${titleHTML}${table}${signatureHTML}<script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}</script></body></html>`;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${tableTitle}</title><style>body{font-family:Arial,sans-serif;padding:24px;padding-bottom:120px}thead th{background:#f3f4f6}tr:nth-child(even){background:#fafafb}.signature{position:fixed;left:24px;right:24px;bottom:24px}</style></head><body>${headerHTML}${detailsHTML}${titleHTML}${table}${signatureHTML}<script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}</script></body></html>`;
   };
 
   const performExportPDF = () => {

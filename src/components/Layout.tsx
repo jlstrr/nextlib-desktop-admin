@@ -16,7 +16,7 @@ function LayoutContent({ children }: LayoutProps) {
         <img 
           src="/ustp-logo-white.png"
           alt="USTP Logo" 
-          className="h-8 mr-3"
+          className="h-10 mr-3"
         />
         University of Science and Technology of Southern Philippines
       </div>
