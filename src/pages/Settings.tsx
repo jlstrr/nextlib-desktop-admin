@@ -52,6 +52,9 @@ function Settings() {
   const [defaultTimeError, setDefaultTimeError] = useState<string | null>(null);
   const [updateAllStudents, setUpdateAllStudents] = useState(false);
   const [initialUpdateAllStudents, setInitialUpdateAllStudents] = useState(false);
+  const adminData = localStorage.getItem('admin');
+  const admin = adminData ? JSON.parse(adminData) : null;
+  const isSuperAdmin = !!admin?.isSuperAdmin;
 
   useEffect(() => {
     if (activeTab === 'courses') {
@@ -732,121 +735,123 @@ function Settings() {
                     </span>
                   </div>
                 </div>
-          </div>
-
-          <div className="mt-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-800">Academic Configurations</h2>
-                <p className="text-sm text-gray-600">Manage school years and semester dates</p>
               </div>
-              <button
-                onClick={() => {
-                  setAyForm({
-                    school_year: '', notes: '', make_active: false,
-                    first_semester_start: '', first_semester_end: '',
-                    second_semester_start: '', second_semester_end: '',
-                    summer_start: '', summer_end: ''
-                  });
-                  setEditingAy(null);
-                  setIsAyCreateOpen(true);
-                }}
-                className="px-5 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg text-sm font-semibold"
-              >
-                Create New
-              </button>
-            </div>
-            <div className="bg-gray-50 border border-transparent overflow-x-auto">
-              <table className="min-w-full rounded-xl">
-                <thead className="bg-white sticky top-0 z-10 shadow">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">School Year</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Active Semester</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">1st (Start-End)</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">2nd (Start-End)</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Summer (Start-End)</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Updated</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Notes</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Created By</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isAcademicYearsLoading ? (
-                    <tr>
-                      <td colSpan={10} className="px-6 py-8 text-center">
-                        <svg className="mx-auto animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                        </svg>
-                        <span className="block mt-2 text-indigo-600 text-sm">Loading academic configurations...</span>
-                      </td>
-                    </tr>
-                  ) : academicYears.length === 0 ? (
-                    <tr><td colSpan={10} className="px-6 py-8 text-center text-gray-400">No configurations found.</td></tr>
-                  ) : (
-                    academicYears.map((cfg, idx) => {
-                      const getSem = (n: string) => cfg.semesters?.find((s: any) => s.name === n);
-                      const fmt = (d: string) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-                      const s1 = getSem('1st');
-                      const s2 = getSem('2nd');
-                      const ss = getSem('summer');
-                      return (
-                        <tr key={cfg._id} className={(idx % 2 === 0 ? "bg-white" : "bg-gray-50") + " hover:bg-indigo-50 transition"}>
-                          <td className="px-6 py-3 text-sm text-gray-900 font-medium whitespace-nowrap">{cfg.school_year}</td>
-                          <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">{cfg.active_semester ? mapApiSemesterToUi(cfg.active_semester) : '-'}</td>
-                          <td className="px-6 py-3 text-sm whitespace-nowrap">
-                            <span className={"px-2 py-1 rounded-full text-xs font-medium " + (cfg.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700")}>{cfg.is_active ? 'Active' : 'Inactive'}</span>
-                          </td>
-                          <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">{fmt(s1?.start_date)} - {fmt(s1?.end_date)}</td>
-                          <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">{fmt(s2?.start_date)} - {fmt(s2?.end_date)}</td>
-                          <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">{fmt(ss?.start_date)} - {fmt(ss?.end_date)}</td>
-                          <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">{cfg.updatedAt ? new Date(cfg.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}</td>
-                          <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">{cfg.notes || '-'}</td>
-                          <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">{(cfg.created_by && (cfg.created_by.firstname || cfg.created_by.lastname)) ? `${cfg.created_by.firstname || ''} ${cfg.created_by.lastname || ''}`.trim() : (cfg.created_by?.username || '-')}</td>
-                          <td className="px-6 py-3">
-                            <div className="flex gap-2">
-                              <button
-                                className="px-3 py-1 text-xs font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded"
-                                onClick={() => {
-                                  setEditingAy(cfg);
-                                  setAyForm({
-                                    school_year: cfg.school_year || '',
-                                    notes: cfg.notes || '',
-                                    make_active: false,
-                                    first_semester_start: fmt(s1?.start_date),
-                                    first_semester_end: fmt(s1?.end_date),
-                                    second_semester_start: fmt(s2?.start_date),
-                                    second_semester_end: fmt(s2?.end_date),
-                                    summer_start: fmt(ss?.start_date),
-                                    summer_end: fmt(ss?.end_date)
-                                  });
-                                  setIsAyEditOpen(true);
-                                }}
-                              >Edit</button>
-                              {!cfg.is_active && (
-                                <button
-                                  className="px-3 py-1 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded"
-                                  onClick={async () => {
-                                    try {
-                                      await setActiveAcademicYear(cfg._id);
-                                      fetchAcademicConfig();
-                                      fetchAcademicYears();
-                                    } catch (e) {}
-                                  }}
-                                >Set Active</button>
-                              )}
-                            </div>
+
+              {isSuperAdmin && (
+                <div className="mt-6">
+                  <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-800">Academic Configurations</h2>
+                    <p className="text-sm text-gray-600">Manage school years and semester dates</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setAyForm({
+                        school_year: '', notes: '', make_active: false,
+                        first_semester_start: '', first_semester_end: '',
+                        second_semester_start: '', second_semester_end: '',
+                        summer_start: '', summer_end: ''
+                      });
+                      setEditingAy(null);
+                      setIsAyCreateOpen(true);
+                    }}
+                    className="px-5 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg text-sm font-semibold"
+                  >
+                    Create New
+                  </button>
+                </div>
+                <div className="bg-gray-50 border border-transparent overflow-x-auto">
+                  <table className="min-w-full rounded-xl">
+                    <thead className="bg-white sticky top-0 z-10 shadow">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">School Year</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Active Semester</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">1st (Start-End)</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">2nd (Start-End)</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Summer (Start-End)</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Updated</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Notes</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Created By</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {isAcademicYearsLoading ? (
+                        <tr>
+                          <td colSpan={10} className="px-6 py-8 text-center">
+                            <svg className="mx-auto animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                            </svg>
+                            <span className="block mt-2 text-indigo-600 text-sm">Loading academic configurations...</span>
                           </td>
                         </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                      ) : academicYears.length === 0 ? (
+                        <tr><td colSpan={10} className="px-6 py-8 text-center text-gray-400">No configurations found.</td></tr>
+                      ) : (
+                        academicYears.map((cfg, idx) => {
+                          const getSem = (n: string) => cfg.semesters?.find((s: any) => s.name === n);
+                          const fmt = (d: string) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+                          const s1 = getSem('1st');
+                          const s2 = getSem('2nd');
+                          const ss = getSem('summer');
+                          return (
+                            <tr key={cfg._id} className={(idx % 2 === 0 ? "bg-white" : "bg-gray-50") + " hover:bg-indigo-50 transition"}>
+                              <td className="px-6 py-3 text-sm text-gray-900 font-medium whitespace-nowrap">{cfg.school_year}</td>
+                              <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">{cfg.active_semester ? mapApiSemesterToUi(cfg.active_semester) : '-'}</td>
+                              <td className="px-6 py-3 text-sm whitespace-nowrap">
+                                <span className={"px-2 py-1 rounded-full text-xs font-medium " + (cfg.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700")}>{cfg.is_active ? 'Active' : 'Inactive'}</span>
+                              </td>
+                              <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">{fmt(s1?.start_date)} - {fmt(s1?.end_date)}</td>
+                              <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">{fmt(s2?.start_date)} - {fmt(s2?.end_date)}</td>
+                              <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">{fmt(ss?.start_date)} - {fmt(ss?.end_date)}</td>
+                              <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">{cfg.updatedAt ? new Date(cfg.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}</td>
+                              <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">{cfg.notes || '-'}</td>
+                              <td className="px-6 py-3 text-sm text-gray-600 whitespace-nowrap">{(cfg.created_by && (cfg.created_by.firstname || cfg.created_by.lastname)) ? `${cfg.created_by.firstname || ''} ${cfg.created_by.lastname || ''}`.trim() : (cfg.created_by?.username || '-')}</td>
+                              <td className="px-6 py-3">
+                                <div className="flex gap-2">
+                                  <button
+                                    className="px-3 py-1 text-xs font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded"
+                                    onClick={() => {
+                                      setEditingAy(cfg);
+                                      setAyForm({
+                                        school_year: cfg.school_year || '',
+                                        notes: cfg.notes || '',
+                                        make_active: false,
+                                        first_semester_start: fmt(s1?.start_date),
+                                        first_semester_end: fmt(s1?.end_date),
+                                        second_semester_start: fmt(s2?.start_date),
+                                        second_semester_end: fmt(s2?.end_date),
+                                        summer_start: fmt(ss?.start_date),
+                                        summer_end: fmt(ss?.end_date)
+                                      });
+                                      setIsAyEditOpen(true);
+                                    }}
+                                  >Edit</button>
+                                  {!cfg.is_active && (
+                                    <button
+                                      className="px-3 py-1 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded"
+                                      onClick={async () => {
+                                        try {
+                                          await setActiveAcademicYear(cfg._id);
+                                          fetchAcademicConfig();
+                                          fetchAcademicYears();
+                                        } catch (e) {}
+                                      }}
+                                    >Set Active</button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              )}
             </div>
           )}
 

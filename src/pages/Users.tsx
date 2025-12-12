@@ -716,6 +716,136 @@ function Users() {
         </div>
       </div>
 
+      
+      <Dialog open={isDialogOpen} onClose={handleCloseDialog} className="relative z-50">
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="mx-auto max-w-2xl w-full bg-white rounded-xl shadow-xl">
+            <div className="p-6">
+              <DialogTitle className="text-xl font-bold text-gray-800 mb-4">
+                {isEditMode ? 'Edit User' : 'Add New User'}
+              </DialogTitle>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {!isEditMode && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">User Type</h3>
+                    <RadioGroup
+                      value={formData.user_type}
+                      onChange={(value) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          user_type: value,
+                          ...(value === 'faculty' ? { yearLevel: undefined, program_course: undefined } : {})
+                        }));
+                      }}
+                    >
+                      <div className="grid grid-cols-2 gap-4 w-full">
+                        {[
+                          { type: 'student', label: 'Student', description: 'For regular students using the system.' },
+                          { type: 'faculty', label: 'Faculty', description: 'For teachers, professors, and staff.' }
+                        ].map(option => (
+                          <RadioGroup.Option
+                            key={option.type}
+                            value={option.type}
+                            className={({ checked }) =>
+                              `flex flex-col items-start px-4 py-3 rounded-lg border transition-colors duration-150 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer w-full min-w-0 ${checked ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`
+                            }
+                          >
+                            {({ checked }) => (
+                              <>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className={`inline-block w-4 h-4 rounded-full border-2 ${checked ? 'bg-white border-white' : 'bg-gray-200 border-gray-400'}`}></span>
+                                  <span className="font-semibold">{option.label}</span>
+                                </div>
+                                <span className={`text-xs ${checked ? 'text-indigo-100' : 'text-gray-500'}`}>{option.description}</span>
+                              </>
+                            )}
+                          </RadioGroup.Option>
+                        ))}
+                      </div>
+                    </RadioGroup>
+                  </div>
+                )}
+
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Personal Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                      <input type="text" name="firstname" value={formData.firstname} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Middle Initial (Optional)</label>
+                      <input type="text" name="middle_initial" value={formData.middle_initial} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                      <input type="text" name="lastname" value={formData.lastname} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Contact & Identification</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">ID Number</label>
+                      <input type="number" name="id_number" value={formData.id_number} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                      <input type="email" name="email" value={formData.email} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                    </div>
+                  </div>
+                </div>
+
+                {formData.user_type === 'student' && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Academic Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Program/Course</label>
+                        <select name="program_course" value={formData.program_course || ''} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                          <option value="" disabled>{programCourses.length === 0 ? 'Loading...' : 'Select program/course'}</option>
+                          {programCourses.map((c: any) => (<option key={c._id ?? c.name} value={c.name}>{c.name}</option>))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Year Level</label>
+                        <select name="yearLevel" value={formData.yearLevel || ''} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                          <option value="" disabled>Select year level</option>
+                          {yearLevels.map((yl) => (<option key={yl} value={yl}>{yl}</option>))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={handleCloseDialog}
+                    disabled={isSubmitting}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-700 rounded-lg hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isSubmitting && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    )}
+                    {isEditMode ? (isSubmitting ? 'Saving...' : 'Save Changes') : (isSubmitting ? 'Creating...' : 'Create User')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
       {/* Import Dialog */}
       <Dialog open={isImportDialogOpen} onClose={handleCloseImportDialog} className="relative z-50">
         <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
