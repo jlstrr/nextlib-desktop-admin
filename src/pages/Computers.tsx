@@ -363,7 +363,6 @@ function Computers() {
 
   const usageCounts = {
     available: computers.filter(c => c.status.toLowerCase() === 'available').length,
-    reserved: computers.filter(c => c.status.toLowerCase() === 'reserved').length,
     maintenance: computers.filter(c => c.status.toLowerCase() === 'maintenance').length,
     locked: computers.filter(c => c.status.toLowerCase() === 'locked').length,
   };
@@ -381,8 +380,6 @@ function Computers() {
           Add New Computer
         </button> */}
       </div>
-
-      
 
       <div className="flex gap-6">
         <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -504,14 +501,6 @@ function Computers() {
                 <span className="text-sm text-gray-700">Available</span>
               </div>
               <span className="text-sm font-medium text-gray-900">{usageCounts.available}</span>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-purple-500 rounded"></div>
-                <span className="text-sm text-gray-700">Reserved</span>
-              </div>
-              <span className="text-sm font-medium text-gray-900">{usageCounts.reserved}</span>
             </div>
             
             <div className="flex items-center justify-between">
