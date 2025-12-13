@@ -299,7 +299,7 @@ function Reservations() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase">ID</th>
+                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase">Reservation No.</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase">Name</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase">Reservation Type</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase">Time Slot</th>
