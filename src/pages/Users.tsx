@@ -2,10 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { RadioGroup } from '@headlessui/react';
 import * as XLSX from 'xlsx';
-import { getAllUsers, addUser, updateUser, deleteUser } from '../api/users';
+import { getAllUsers, addUser, updateUser, deleteUser, bulkUserImport } from '../api/users';
 import { getCourses } from '../api/courses';
 import { getSystemDefault } from '../api/system-default';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface User {
   _id: string;
@@ -35,6 +35,7 @@ interface PaginationData {
 
 function Users() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [users, setUsers] = useState<User[]>([]);
   const [pagination, setPagination] = useState<PaginationData>({
     currentPage: 1,
@@ -46,6 +47,7 @@ function Users() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [userTypeFilter, setUserTypeFilter] = useState<'all' | 'student' | 'faculty'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -118,7 +120,7 @@ function Users() {
 
   useEffect(() => {
     fetchUsers();
-  }, [currentPage, itemsPerPage]);
+  }, [currentPage, itemsPerPage, searchQuery, userTypeFilter]);
 
   useEffect(() => {
     const fetchDefaultTime = async () => {
@@ -139,7 +141,9 @@ function Users() {
       setLoading(true);
       const response = await getAllUsers({
         page: currentPage,
-        limit: itemsPerPage
+        limit: itemsPerPage,
+        search: searchQuery,
+        user_type: userTypeFilter
       });
       setUsers(response.data);
       setPagination(response.pagination);
@@ -168,6 +172,38 @@ function Users() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = window.setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+      setCurrentPage(1);
+    }, 300);
+  }, [searchInput]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const search = params.get('search') || '';
+    const userType = (params.get('user_type') as 'all' | 'student' | 'faculty') || 'all';
+    const pageParam = parseInt(params.get('page') || '1', 10);
+    const limitParam = parseInt(params.get('limit') || '10', 10);
+    setSearchInput(search);
+    setSearchQuery(search);
+    setUserTypeFilter(userType);
+    setCurrentPage(Number.isNaN(pageParam) ? 1 : pageParam);
+    setItemsPerPage(Number.isNaN(limitParam) ? 10 : limitParam);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchQuery) params.set('search', searchQuery);
+    if (userTypeFilter && userTypeFilter !== 'all') params.set('user_type', userTypeFilter);
+    params.set('page', currentPage.toString());
+    params.set('limit', itemsPerPage.toString());
+    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+  }, [searchQuery, userTypeFilter, currentPage, itemsPerPage]);
 
   const handleEdit = (userId: string) => {
     const user = users.find(u => u._id === userId);
@@ -358,82 +394,68 @@ function Users() {
   const handleConfirmImport = async () => {
     if (!importFile) return;
     setIsImporting(true);
-    try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        try {
-          const data = new Uint8Array(event.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet);
-          let successCount = 0;
-          let failCount = 0;
-          const failedRows: any[] = [];
-          // Process and import users
-          for (let i = 0; i < jsonData.length; i++) {
-            const row = jsonData[i];
-            let userData;
-            if (importUserType === 'faculty') {
-              userData = {
-                id_number: row.id_number?.toString() || row.ID?.toString() || '',
-                firstname: row.firstname || row.first_name || row.Firstname || '',
-                middle_initial: row.middle_initial || row.MI || '',
-                lastname: row.lastname || row.last_name || row.Lastname || '',
-                email: row.email || row.Email || '',
-                user_type: 'faculty',
-                password: (row.lastname || row.last_name || row.Lastname || '') + "@" + (row.id_number?.toString() || row.ID?.toString() || ''),
-                remaining_time: null
-              };
-            } else {
-              userData = {
-                id_number: row.id_number?.toString() || row.ID?.toString() || '',
-                firstname: row.firstname || row.first_name || row.Firstname || '',
-                middle_initial: row.middle_initial || row.MI || '',
-                lastname: row.lastname || row.last_name || row.Lastname || '',
-                program_course: row.program_course || row.program || row.course || '',
-                yearLevel: row.yearLevel || row.year_level || '',
-                email: row.email || row.Email || '',
-                user_type: 'student',
-                password: (row.lastname || row.last_name || row.Lastname || '') + "@" + (row.id_number?.toString() || row.ID?.toString() || ''),
-                remaining_time: getDefaultRemainingTime()
-              };
-            }
-            try {
-              await addUser(userData);
-              successCount++;
-            } catch (err) {
-              failCount++;
-              failedRows.push({
-                row: i + 2, // +2 because Excel rows start at 1 and header is row 1
-                data: userData,
-                error: err instanceof Error ? err.message : 'Unknown error'
-              });
-              console.error('Failed to import user:', userData, err);
-            }
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const rows: any[] = XLSX.utils.sheet_to_json(worksheet);
+        const usersPayload = rows.map((row) => {
+          if (importUserType === 'faculty') {
+            return {
+              id_number: row.id_number?.toString() || row.ID?.toString() || '',
+              firstname: row.firstname || row.first_name || row.Firstname || '',
+              middle_initial: row.middle_initial || row.MI || '',
+              lastname: row.lastname || row.last_name || row.Lastname || '',
+              email: row.email || row.Email || '',
+              user_type: 'faculty',
+              password: (row.lastname || row.last_name || row.Lastname || '') + '@' + (row.id_number?.toString() || row.ID?.toString() || ''),
+              remaining_time: null
+            };
           }
-          handleCloseImportDialog();
-          fetchUsers();
-          // Set import results to display in dialog
-          setImportResult({
-            success: successCount,
-            failed: failCount,
-            errors: failedRows
-          });
-          // Reopen dialog to show results
-          setIsImportDialogOpen(true);
-        } catch (error) {
-          console.error('Error processing file:', error);
-          alert('Error processing Excel file.');
-        }
-      };
-      reader.readAsArrayBuffer(importFile);
-    } catch (err) {
-      console.error('Failed to import users:', err);
-      alert('Failed to import users');
-    } finally {
-      setIsImporting(false);
-    }
+          return {
+            id_number: row.id_number?.toString() || row.ID?.toString() || '',
+            firstname: row.firstname || row.first_name || row.Firstname || '',
+            middle_initial: row.middle_initial || row.MI || '',
+            lastname: row.lastname || row.last_name || row.Lastname || '',
+            program_course: row.program_course || row.program || row.course || '',
+            yearLevel: row.yearLevel || row.year_level || '',
+            email: row.email || row.Email || '',
+            user_type: 'student',
+            password: (row.lastname || row.last_name || row.Lastname || '') + '@' + (row.id_number?.toString() || row.ID?.toString() || ''),
+            remaining_time: getDefaultRemainingTime()
+          };
+        });
+        const payload = { users: usersPayload, type: importUserType };
+        const response = await bulkUserImport(payload);
+        const success = response?.data?.success ?? usersPayload.length;
+        const failed = response?.data?.failed ?? 0;
+        const errors = response?.data?.errors ?? [];
+        setImportResult({
+          success,
+          failed,
+          errors
+        });
+        fetchUsers();
+        setIsImportDialogOpen(false);
+      } catch (error: any) {
+        const total = Array.isArray(importPreview) && importPreview.length > 0 ? importPreview.length : 0;
+        setImportResult({
+          success: 0,
+          failed: total,
+          errors: [{
+            row: 0,
+            data: {},
+            error: error instanceof Error ? error.message : 'Import failed'
+          }]
+        });
+      } finally {
+        setIsImporting(false);
+      }
+    };
+    reader.readAsArrayBuffer(importFile);
   };
 
   const handleDownloadTemplate = () => {
@@ -514,7 +536,7 @@ function Users() {
       {/* Search and Table Section */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         {/* Search Bar */}
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6">
           <div className="relative flex-1">
             <input
               type="text"
@@ -536,6 +558,25 @@ function Users() {
                 </svg>
               </button>
             )}
+          </div>
+          <div className="w-full md:w-48">
+            <select
+              value={userTypeFilter}
+              onChange={(e) => {
+                const value = e.target.value as 'all' | 'student' | 'faculty';
+                setUserTypeFilter(value);
+                setCurrentPage(1);
+              }}
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
+                userTypeFilter !== 'all'
+                  ? 'border-indigo-600 focus:ring-indigo-600 text-indigo-700 bg-indigo-50'
+                  : 'border-gray-300 focus:ring-indigo-500 text-gray-700 bg-white'
+              }`}
+            >
+              <option value="all">All Types</option>
+              <option value="student">Student</option>
+              <option value="faculty">Faculty</option>
+            </select>
           </div>
           <div className="flex items-center gap-2">
             <label htmlFor="itemsPerPage" className="text-sm text-gray-600 whitespace-nowrap">
@@ -588,43 +629,29 @@ function Users() {
               </tr>
             </thead>
             <tbody>
-              {!loading && !error && (() => {
-                const filteredUsers = users.filter(user => {
-                  const search = searchInput.trim().toLowerCase();
-                  const matchesSearch = !search || (
-                    user.firstname.toLowerCase().includes(search) ||
-                    user.lastname.toLowerCase().includes(search) ||
-                    user.id_number.toLowerCase().includes(search) ||
-                    user.email.toLowerCase().includes(search)
-                  );
-                  return matchesSearch;
-                });
-
-                if (filteredUsers.length === 0) {
-                  return (
-                    <tr>
-                      <td colSpan={9} className="py-12 text-center">
-                        <div className="flex flex-col items-center gap-2">
-                          <svg className="w-16 h-16 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                          </svg>
-                          <p className="text-gray-500 font-medium">No users found</p>
-                          {searchInput && (
-                            <p className="text-sm text-gray-400">
-                              {`No results match your search "${searchInput}"`}
-                            </p>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                }
-                return filteredUsers.map((user, index) => (
-                  <tr key={user._id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-4 px-4 text-sm text-gray-800">{((currentPage - 1) * itemsPerPage) + index + 1}</td>
-                    <td className="py-4 px-4 text-sm text-gray-800">
-                      {user.firstname} {user.middle_initial ? `${user.middle_initial}. ` : ''}{user.lastname}
-                    </td>
+              {!loading && !error && users.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <svg className="w-16 h-16 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                      </svg>
+                      <p className="text-gray-500 font-medium">No users found</p>
+                      {(searchInput || userTypeFilter !== 'all') && (
+                        <p className="text-sm text-gray-400">
+                          {`No results for "${searchInput || 'search'}"${userTypeFilter !== 'all' ? ` in ${userTypeFilter}` : ''}`}
+                        </p>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {!loading && !error && users.length > 0 && users.map((user, index) => (
+                <tr key={user._id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="py-4 px-4 text-sm text-gray-800">{((currentPage - 1) * itemsPerPage) + index + 1}</td>
+                  <td className="py-4 px-4 text-sm text-gray-800">
+                    {user.firstname} {user.middle_initial ? `${user.middle_initial}. ` : ''}{user.lastname}
+                  </td>
                     <td className="py-4 px-4 text-sm text-gray-800">{user.id_number}</td>
                     <td className="py-4 px-4 text-sm text-gray-800">{user.email}</td>
                     <td className="py-4 px-4 text-sm text-gray-800">{user.program_course || '-'}</td>
@@ -652,8 +679,7 @@ function Users() {
                       </div>
                     </td>
                   </tr>
-                ));
-              })()}
+              ))}
             </tbody>
           </table>
         </div>
@@ -991,10 +1017,10 @@ function Users() {
                           </div>
                         </div>
                       </div>
-                      <div className="border border-red-200 rounded-lg overflow-hidden">
-                        <div className="bg-red-50 px-4 py-2 border-b border-red-200">
+                      <div className="rounded-lg overflow-hidden">
+                        {/* <div className="bg-red-50 px-4 py-2 border-b border-red-200">
                           <h4 className="text-sm font-semibold text-red-900">Failed Imports</h4>
-                        </div>
+                        </div> */}
                         <div className="max-h-60 overflow-y-auto">
                           {importResult.errors.map((error, index) => (
                             <div key={index} className="px-4 py-3 border-b border-red-100 last:border-b-0">

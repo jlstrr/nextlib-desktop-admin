@@ -1,7 +1,7 @@
 {
   "name": "electron-app",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "main": "electron/main.js",
   "description": "",
   "author": "",
@@ -56,7 +56,13 @@
     ],
     "win": {
       "target": "nsis", 
-      "icon": "assets/icon.ico"
+      "icon": "assets/nextlib.ico"
+    },
+    "mac": {
+      "icon": "assets/nextlib.icns"
+    },
+    "linux": {
+      "icon": "assets/nextlib.png"
     },
     "nsis": {
       "oneClick": false,
