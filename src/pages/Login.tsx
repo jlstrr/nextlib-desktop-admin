@@ -1,5 +1,5 @@
  import { useNavigate, Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { adminLogin } from '../api/admin';
 
 function Login() {
@@ -10,6 +10,15 @@ function Login() {
   const [keepLoggedIn, setKeepLoggedIn] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const savedKeep = localStorage.getItem('keepLoggedIn') === 'true';
+    if (savedKeep) {
+      setKeepLoggedIn(true);
+      const savedUser = localStorage.getItem('savedUsername') || '';
+      setIdNumber(savedUser);
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,7 +80,12 @@ function Login() {
               type="text"
               id="idNumber"
               value={idNumber}
-              onChange={(e) => setIdNumber(e.target.value)}
+              onChange={(e) => {
+                setIdNumber(e.target.value);
+                if (keepLoggedIn) {
+                  localStorage.setItem('savedUsername', e.target.value);
+                }
+              }}
               placeholder="Enter your username"
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
             />
@@ -116,7 +130,17 @@ function Login() {
               <input
                 type="checkbox"
                 checked={keepLoggedIn}
-                onChange={(e) => setKeepLoggedIn(e.target.checked)}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setKeepLoggedIn(checked);
+                  if (checked) {
+                    localStorage.setItem('keepLoggedIn', 'true');
+                    localStorage.setItem('savedUsername', idNumber);
+                  } else {
+                    localStorage.removeItem('keepLoggedIn');
+                    localStorage.removeItem('savedUsername');
+                  }
+                }}
                 className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
               />
               <span className="ml-2 text-sm text-gray-700">Keep me logged in</span>
