@@ -34,8 +34,14 @@ export async function adminLogout() {
     return response.json();
 }
 
-export async function getAllAdmins() {
-    const response = await fetch(`${API_ENDPOINT}admin`, {
+export async function getAllAdmins(params: { page?: number; limit?: number; isSuperAdmin?: boolean } = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (typeof params.isSuperAdmin === 'boolean') queryParams.append('isSuperAdmin', String(params.isSuperAdmin));
+    const queryString = queryParams.toString();
+    const url = `${API_ENDPOINT}admin${queryString ? `?${queryString}` : ''}`;
+    const response = await fetch(url, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',

@@ -174,8 +174,16 @@ function Reports() {
       : 'All dates';
     const headerHTML = `
       <div class="doc-header" role="banner" aria-label="Document header">
-        <img class="doc-header__image" src="/header-1.jpg" alt="Report Header Image" onerror="this.style.display='none';document.getElementById('doc-header-fallback').style.display='block'" />
-        <div id="doc-header-fallback" class="doc-header__fallback">
+        <img 
+          class="doc-header__image" 
+          src="/header-1.jpg" 
+          alt="Report Header" 
+          loading="eager" 
+          decoding="async" 
+          sizes="100vw"
+          onerror="this.style.display='none';document.getElementById('doc-header-fallback').style.display='block'" 
+        />
+        <div id="doc-header-fallback" class="doc-header__fallback" role="img" aria-label="Header Fallback">
           <div class="doc-header__fallback-content">
             <div style="display:flex;align-items:center;gap:12px">
               <img src="/ustp-logo.png" alt="USTP Logo" style="height:40px" />

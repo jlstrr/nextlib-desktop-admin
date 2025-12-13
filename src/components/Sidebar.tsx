@@ -184,7 +184,7 @@ function Sidebar() {
                     isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'
                   }`
                 }
-              >Computer Usage</NavLink>
+              >Computer User</NavLink>
               <NavLink
                 to="/attendance/non-computer-users"
                 className={({ isActive }) =>
@@ -192,7 +192,7 @@ function Sidebar() {
                     isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'
                   }`
                 }
-              >Non Computer Usage</NavLink>
+              >Non Computer User</NavLink>
             </div>
           </div>
         </nav>

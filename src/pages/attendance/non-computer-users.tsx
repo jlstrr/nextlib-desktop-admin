@@ -185,15 +185,28 @@ function NonComputersUsersPage() {
     ].filter(Boolean).join(', ') || 'None';
     const totalRecords = records.length;
     const headerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1f2937;padding-bottom:12px;margin-bottom:12px">
-        <div style="display:flex;align-items:center;gap:12px">
-          <img src="/ustp-logo.png" alt="USTP Logo" style="height:40px" />
-          <div>
-            <div style="font-size:14px;font-weight:700;color:#111827;text-transform:uppercase">University of Science and Technology of Southern Philippines</div>
-            <div style="font-size:13px;font-weight:600;color:#4b5563;margin-top:2px">Jasaan, Misamis Oriental</div>
+      <div class="doc-header" role="banner" aria-label="Document header">
+        <img 
+          class="doc-header__image" 
+          src="/header-1.jpg" 
+          alt="Report Header" 
+          loading="eager" 
+          decoding="async" 
+          sizes="100vw"
+          onerror="this.style.display='none';document.getElementById('doc-header-fallback').style.display='block'" 
+        />
+        <div id="doc-header-fallback" class="doc-header__fallback" role="img" aria-label="Header Fallback">
+          <div class="doc-header__fallback-content">
+            <div style="display:flex;align-items:center;gap:12px">
+              <img src="/ustp-logo.png" alt="USTP Logo" style="height:40px" />
+              <div>
+                <div style="font-size:14px;font-weight:700;color:#111827;text-transform:uppercase">University of Science and Technology of Southern Philippines</div>
+                <div style="font-size:13px;font-weight:600;color:#4b5563;margin-top:2px">Jasaan, Misamis Oriental</div>
+              </div>
+            </div>
+            <img src="/favicon.png" alt="System Logo" style="height:40px" />
           </div>
         </div>
-        <img src="/favicon.png" alt="System Logo" style="height:40px" />
       </div>
     `;
     const detailsHTML = `
@@ -217,7 +230,7 @@ function NonComputersUsersPage() {
         </div>
       </div>
     `;
-    return `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${tableTitle}</title><style>body{font-family:Arial,sans-serif;padding:24px;padding-bottom:120px}thead th{background:#f3f4f6}tr:nth-child(even){background:#fafafb}.signature{position:fixed;left:24px;right:24px;bottom:24px}</style></head><body>${headerHTML}${detailsHTML}${titleHTML}${table}${signatureHTML}<script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}</script></body></html>`;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${tableTitle}</title><style>:root{--header-height:0px}body{font-family:Arial,sans-serif;padding:24px;padding-top:var(--header-height);padding-bottom:120px}thead th{background:#f3f4f6}tr:nth-child(even){background:#fafafb}.signature{position:fixed;left:24px;right:24px;bottom:24px}.doc-header{position:fixed;top:0;left:0;right:0;margin:0;z-index:9999;background:#ffffff}.doc-header__image{display:block;width:100%;height:auto;object-fit:contain}.doc-header__fallback{display:none;border-bottom:2px solid #1f2937;padding:8px 24px;background:#ffffff}.doc-header__fallback-content{display:flex;align-items:center;justify-content:space-between;gap:12px}@media print{body{padding-top:var(--header-height)}.doc-header{position:fixed;top:0}}</style></head><body>${headerHTML}${detailsHTML}${titleHTML}${table}${signatureHTML}<script>(function(){function setHeaderHeight(){var el=document.querySelector('.doc-header');if(!el)return;var h=el.offsetHeight||0;document.body.style.setProperty('--header-height',h+'px')}var img=document.querySelector('.doc-header__image');var fb=document.getElementById('doc-header-fallback');if(img){if(img.complete){setHeaderHeight()}else{img.addEventListener('load',setHeaderHeight)}img.addEventListener('error',function(){if(fb)fb.style.display='block';setHeaderHeight()})}else{if(fb)fb.style.display='block';setHeaderHeight()}window.addEventListener('resize',setHeaderHeight)})();window.onload=function(){setTimeout(function(){window.print()},100);setTimeout(function(){window.close()},300)}</script></body></html>`;
   };
 
   const performExportPDF = () => {

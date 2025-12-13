@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { RadioGroup } from '@headlessui/react';
 import * as XLSX from 'xlsx';
@@ -47,6 +47,7 @@ function Users() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [matchingIds, setMatchingIds] = useState<string[]>([]);
   const [userTypeFilter, setUserTypeFilter] = useState<'all' | 'student' | 'faculty'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -120,7 +121,7 @@ function Users() {
 
   useEffect(() => {
     fetchUsers();
-  }, [currentPage, itemsPerPage, searchQuery, userTypeFilter]);
+  }, [currentPage, itemsPerPage, userTypeFilter]);
 
   useEffect(() => {
     const fetchDefaultTime = async () => {
@@ -142,7 +143,6 @@ function Users() {
       const response = await getAllUsers({
         page: currentPage,
         limit: itemsPerPage,
-        search: searchQuery,
         user_type: userTypeFilter
       });
       setUsers(response.data);
@@ -157,11 +157,9 @@ function Users() {
 
   const handleSearch = (value: string) => {
     setSearchInput(value);
-    setCurrentPage(1);
   };
   const handleClearSearch = () => {
     setSearchInput('');
-    setCurrentPage(1);
   };
 
   // Cleanup debounce timer on unmount
@@ -179,7 +177,6 @@ function Users() {
     }
     debounceTimerRef.current = window.setTimeout(() => {
       setSearchQuery(searchInput.trim());
-      setCurrentPage(1);
     }, 300);
   }, [searchInput]);
 
@@ -204,6 +201,43 @@ function Users() {
     params.set('limit', itemsPerPage.toString());
     navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
   }, [searchQuery, userTypeFilter, currentPage, itemsPerPage]);
+
+  const normalizeStr = (s: string) => s.toLocaleLowerCase();
+  const userMatchesQuery = (u: User, q: string) => {
+    if (!q) return true;
+    const query = normalizeStr(q);
+    const name = `${u.firstname || ''} ${u.middle_initial ? `${u.middle_initial}. ` : ''}${u.lastname || ''}`;
+    return (
+      normalizeStr(name).includes(query) ||
+      normalizeStr(u.id_number || '').includes(query) ||
+      normalizeStr(u.email || '').includes(query)
+    );
+  };
+
+  useEffect(() => {
+    if (!searchQuery) {
+      setMatchingIds(users.map(u => u._id));
+      return;
+    }
+    const ids = users.filter(u => userMatchesQuery(u, searchQuery)).map(u => u._id);
+    setMatchingIds(ids);
+  }, [users, searchQuery]);
+
+  const matchingIdSet = useMemo(() => new Set(matchingIds), [matchingIds]);
+
+  const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const highlightText = (text: string, q: string) => {
+    if (!q) return text;
+    const pattern = new RegExp(`(${escapeRegExp(q)})`, 'ig');
+    const parts = text.split(pattern);
+    return parts.map((part, i) =>
+      pattern.test(part) ? (
+        <span key={i} className="bg-yellow-200">{part}</span>
+      ) : (
+        <span key={i}>{part}</span>
+      )
+    );
+  };
 
   const handleEdit = (userId: string) => {
     const user = users.find(u => u._id === userId);
@@ -543,6 +577,7 @@ function Users() {
               placeholder="Search by name, ID number, or email"
               value={searchInput}
               onChange={(e) => handleSearch(e.target.value)}
+              aria-label="Search users"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm pr-10"
             />
             {searchInput && (
@@ -637,23 +672,32 @@ function Users() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                       </svg>
                       <p className="text-gray-500 font-medium">No users found</p>
-                      {(searchInput || userTypeFilter !== 'all') && (
-                        <p className="text-sm text-gray-400">
-                          {`No results for "${searchInput || 'search'}"${userTypeFilter !== 'all' ? ` in ${userTypeFilter}` : ''}`}
-                        </p>
-                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {!loading && !error && users.length > 0 && matchingIds.length === 0 && searchQuery && (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center">
+                    <div className="flex flex-col items-center gap-2" aria-live="polite">
+                      <svg className="w-16 h-16 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-gray-500 font-medium">No results found</p>
+                      <p className="text-sm text-gray-400">{`No matches for "${searchQuery}" in name, ID, or email`}</p>
                     </div>
                   </td>
                 </tr>
               )}
               {!loading && !error && users.length > 0 && users.map((user, index) => (
-                <tr key={user._id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-4 px-4 text-sm text-gray-800">{((currentPage - 1) * itemsPerPage) + index + 1}</td>
-                  <td className="py-4 px-4 text-sm text-gray-800">
-                    {user.firstname} {user.middle_initial ? `${user.middle_initial}. ` : ''}{user.lastname}
-                  </td>
-                    <td className="py-4 px-4 text-sm text-gray-800">{user.id_number}</td>
-                    <td className="py-4 px-4 text-sm text-gray-800">{user.email}</td>
+                matchingIdSet.has(user._id) ? (
+                  <tr key={user._id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-4 px-4 text-sm text-gray-800">{((currentPage - 1) * itemsPerPage) + index + 1}</td>
+                    <td className="py-4 px-4 text-sm text-gray-800">
+                      {highlightText(`${user.firstname} ${user.middle_initial ? `${user.middle_initial}. ` : ''}${user.lastname}`, searchQuery)}
+                    </td>
+                    <td className="py-4 px-4 text-sm text-gray-800">{highlightText(user.id_number, searchQuery)}</td>
+                    <td className="py-4 px-4 text-sm text-gray-800">{highlightText(user.email, searchQuery)}</td>
                     <td className="py-4 px-4 text-sm text-gray-800">{user.program_course || '-'}</td>
                     <td className="py-4 px-4 text-sm text-gray-800">{user.yearLevel || '-'}</td>
                     <td className="py-4 px-4 text-sm text-gray-800 capitalize">{user.user_type}</td>
@@ -670,15 +714,10 @@ function Users() {
                         >
                           Edit
                         </button>
-                        {/* <button 
-                          onClick={() => handleRemove(user._id)}
-                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-medium"
-                        >
-                          Delete
-                        </button> */}
                       </div>
                     </td>
                   </tr>
+                ) : null
               ))}
             </tbody>
           </table>
