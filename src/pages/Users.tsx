@@ -821,7 +821,18 @@ function Users() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Middle Initial (Optional)</label>
-                      <input type="text" name="middle_initial" value={formData.middle_initial} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                      <input
+                        type="text"
+                        name="middle_initial"
+                        minLength={1}
+                        maxLength={1}
+                        value={formData.middle_initial}
+                        onChange={(e) => {
+                          const upper = e.target.value.toUpperCase();
+                          setFormData(prev => ({ ...prev, middle_initial: upper }));
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
@@ -1147,164 +1158,6 @@ function Users() {
         </div>
       </Dialog>
 
-      {/* Import Dialog */}
-      {/* <Dialog open={isImportDialogOpen} onClose={handleCloseImportDialog} className="relative z-50">
-        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-        
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <DialogPanel className="mx-auto max-w-3xl w-full bg-white rounded-xl shadow-xl">
-            <div className="p-6">
-              <DialogTitle className="text-xl font-bold text-gray-800 mb-4">
-                Import Users from Excel
-              </DialogTitle>
-              
-              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-sm font-semibold text-blue-900 mb-1">Need a template?</h3>
-                    <p className="text-xs text-blue-700">
-                      Download our Excel template with sample data and the correct format
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleDownloadTemplate}
-                    className="ml-4 px-3 py-1.5 text-xs font-medium text-blue-700 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 whitespace-nowrap"
-                  >
-                    Download Template
-                  </button>
-                </div>
-              </div>
-              
-              <div className="mb-6">
-                <p className="text-sm text-gray-600 mb-4">
-                  Upload an Excel file (.xlsx, .xls) with the following columns: 
-                  <span className="font-medium"> id_number, firstname, middle_initial, lastname, program_course, yearLevel, email, user_type</span>
-                </p>
-                
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={handleFileChange}
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                />
-              </div>
-
-              {importPreview.length > 0 && !importResult && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Preview (First 5 rows)</h3>
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto max-h-60">
-                      <table className="w-full text-xs">
-                        <thead className="bg-gray-50 sticky top-0">
-                          <tr>
-                            {Object.keys(importPreview[0]).map((key) => (
-                              <th key={key} className="px-3 py-2 text-left text-gray-600 font-semibold border-b">
-                                {key}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {importPreview.map((row, index) => (
-                            <tr key={index} className="border-b border-gray-100">
-                              {Object.values(row).map((value: any, i) => (
-                                <td key={i} className="px-3 py-2 text-gray-700">
-                                  {value?.toString() || '-'}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {importResult && (
-                <div className="mb-6">
-                  {importResult.failed === 0 ? (
-                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <svg className="w-5 h-5 text-green-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div>
-                          <h3 className="text-sm font-semibold text-green-900 mb-1">Import Successful!</h3>
-                          <p className="text-sm text-green-700">
-                            Successfully imported all {importResult.success} users.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <div className="flex items-start gap-3">
-                          <svg className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                          </svg>
-                          <div className="flex-1">
-                            <h3 className="text-sm font-semibold text-yellow-900 mb-1">Import Completed with Errors</h3>
-                            <p className="text-sm text-yellow-700">
-                              ✓ Success: {importResult.success} | ✗ Failed: {importResult.failed}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="border border-red-200 rounded-lg overflow-hidden">
-                        <div className="bg-red-50 px-4 py-2 border-b border-red-200">
-                          <h4 className="text-sm font-semibold text-red-900">Failed Imports</h4>
-                        </div>
-                        <div className="max-h-60 overflow-y-auto">
-                          {importResult.errors.map((error, index) => (
-                            <div key={index} className="px-4 py-3 border-b border-red-100 last:border-b-0">
-                              <div className="text-xs">
-                                <span className="font-semibold text-red-900">Row {error.row}:</span>
-                                <span className="text-gray-700 ml-2">
-                                  {error.data.firstname} {error.data.lastname}
-                                </span>
-                              </div>
-                              <div className="text-xs text-red-600 mt-1">{error.error}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={handleCloseImportDialog}
-                  disabled={isImporting}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {importResult ? 'Close' : 'Cancel'}
-                </button>
-                {!importResult && (
-                  <button
-                    type="button"
-                    onClick={handleConfirmImport}
-                    disabled={!importFile || isImporting}
-                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-700 rounded-lg hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {isImporting && (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    )}
-                    {isImporting ? 'Importing...' : 'Import Users'}
-                  </button>
-                )}
-              </div>
-            </div>
-          </DialogPanel>
-        </div>
-      </Dialog> */}
     </div>
   );
 }

@@ -14,6 +14,8 @@ import Settings from './pages/Settings';
 import SubjectScheduler from './pages/SubjectScheduler';
 import ComputerUsersPage from './pages/attendance/computer-users';
 import NonComputersUsersPage from './pages/attendance/non-computer-users';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 // A wrapper to check authentication and provide the layout
 const ProtectedLayout = () => {
@@ -36,6 +38,8 @@ function App() {
       <Routes>
         {/* Public Route */}
         <Route path="/" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         
         {/* Protected Routes with Layout */}
         <Route element={<ProtectedLayout />}>

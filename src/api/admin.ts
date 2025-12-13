@@ -163,3 +163,33 @@ export async function changePassword(passwordData: any) {
     }
     return response.json();
 }
+
+export async function forgotPassword(email: string) {
+    const response = await fetch(`${API_ENDPOINT}auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to reset password');
+    }
+    return response.json();
+}
+
+export async function resetPassword(resetData: any) {
+    const response = await fetch(`${API_ENDPOINT}auth/reset-password`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(resetData),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to reset password');
+    }
+    return response.json();
+}

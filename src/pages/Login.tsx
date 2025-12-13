@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+ import { useNavigate, Link } from 'react-router-dom';
 import { useState } from 'react';
 import { adminLogin } from '../api/admin';
 
@@ -111,7 +111,7 @@ function Login() {
           </div>
 
           {/* Keep Logged In and Forgot Password */}
-          {/* <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6">
             <label className="flex items-center">
               <input
                 type="checkbox"
@@ -121,10 +121,14 @@ function Login() {
               />
               <span className="ml-2 text-sm text-gray-700">Keep me logged in</span>
             </label>
-            <a href="#" className="text-sm text-yellow-500 hover:text-yellow-600 font-medium">
+            <Link
+              to="/forgot-password"
+              aria-label="Forgot your password"
+              className="text-sm text-yellow-500 hover:text-yellow-600 font-medium focus:outline-none focus:ring-2 focus:ring-yellow-500 rounded"
+            >
               Forgot Password?
-            </a>
-          </div> */}
+            </Link>
+          </div>
 
           {/* Login Button */}
           <button

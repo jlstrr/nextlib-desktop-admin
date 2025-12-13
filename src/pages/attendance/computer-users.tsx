@@ -180,7 +180,7 @@ function ComputerUsersPage() {
       <div class="doc-header" role="banner" aria-label="Document header">
         <img 
           class="doc-header__image" 
-          src="/header-1.jpg" 
+          src="/ustp-header.jpg" 
           alt="Report Header" 
           loading="eager" 
           decoding="async" 
@@ -212,8 +212,8 @@ function ComputerUsersPage() {
       <div style="font-size:18px;font-weight:700;color:#111827;margin-bottom:8px;text-align:center">${tableTitle}</div>
     `;
     const signatureHTML = `
-      <div class="signature" style="text-align:center">
-        <div style="display:inline-block;text-align:center">
+      <div class="signature">
+        <div style="display:inline-block;text-align:left">
           <div style="font-size:12px;color:#111827;margin-bottom:25px">Prepared by:</div>
           <div style="font-size:12px;color:#111827">${adminName}</div>
           <div style="border-bottom:1px solid #111827;margin:6px 0"></div>
@@ -221,7 +221,27 @@ function ComputerUsersPage() {
         </div>
       </div>
     `;
-    return `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${tableTitle}</title><style>:root{--header-height:0px}body{font-family:Arial,sans-serif;padding:24px;padding-top:var(--header-height);padding-bottom:120px}thead th{background:#f3f4f6}tr:nth-child(even){background:#fafafb}.signature{position:fixed;left:24px;right:24px;bottom:24px}.doc-header{position:fixed;top:0;left:0;right:0;margin:0;z-index:9999;background:#ffffff}.doc-header__image{display:block;width:100%;height:auto;object-fit:contain}.doc-header__fallback{display:none;border-bottom:2px solid #1f2937;padding:8px 24px;background:#ffffff}.doc-header__fallback-content{display:flex;align-items:center;justify-content:space-between;gap:12px}@media print{body{padding-top:var(--header-height)}.doc-header{position:fixed;top:0}}</style></head><body>${headerHTML}${detailsHTML}${titleHTML}${table}${signatureHTML}<script>(function(){function setHeaderHeight(){var el=document.querySelector('.doc-header');if(!el)return;var h=el.offsetHeight||0;document.body.style.setProperty('--header-height',h+'px')}var img=document.querySelector('.doc-header__image');var fb=document.getElementById('doc-header-fallback');if(img){if(img.complete){setHeaderHeight()}else{img.addEventListener('load',setHeaderHeight)}img.addEventListener('error',function(){if(fb)fb.style.display='block';setHeaderHeight()})}else{if(fb)fb.style.display='block';setHeaderHeight()}window.addEventListener('resize',setHeaderHeight)})();window.onload=function(){setTimeout(function(){window.print()},100);setTimeout(function(){window.close()},300)}</script></body></html>`;
+    const footerHTML = `
+      <div class="doc-footer" role="contentinfo" aria-label="Document footer">
+        <div class="doc-footer__content">
+          <img 
+            class="doc-footer__image" 
+            src="/footer-1.png" 
+            alt="Footer graphic 1" 
+            loading="lazy" 
+            decoding="async" 
+          />
+          <img 
+            class="doc-footer__image" 
+            src="/footer-2.jpg" 
+            alt="Footer graphic 2" 
+            loading="lazy" 
+            decoding="async" 
+          />
+        </div>
+      </div>
+    `;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${tableTitle}</title><style>:root{--header-height:0px;--footer-height:80px}body{font-family:Arial,sans-serif;padding:24px;padding-top:var(--header-height);padding-bottom:var(--footer-height)}thead th{background:#f3f4f6}tr:nth-child(even){background:#fafafb}.report-body{max-width:900px;margin:0 auto}.signature{margin-top:24pt;text-align:left}.doc-header{position:fixed;top:0;left:0;right:0;margin:0;z-index:9999;background:#ffffff}.doc-header__image{display:block;width:100%;height:auto;object-fit:contain}.doc-header__fallback{display:none;border-bottom:2px solid #1f2937;padding:8px 24px;background:#ffffff}.doc-header__fallback-content{display:flex;align-items:center;justify-content:space-between;gap:12px}.doc-footer{position:fixed;left:0;right:0;bottom:0;background:#ffffff}.doc-footer__content{display:flex;justify-content:center;align-items:center;gap:18pt;padding:8pt 24pt}.doc-footer__image{height:auto;max-height:48pt;width:auto;object-fit:contain}@media print{body{padding-top:var(--header-height);padding-bottom:var(--footer-height)}.doc-header{position:fixed;top:0}.doc-footer{position:fixed;bottom:0}}</style></head><body>${headerHTML}${detailsHTML}${titleHTML}<div class="report-body">${table}${signatureHTML}</div>${footerHTML}<script>(function(){function setHeaderHeight(){var el=document.querySelector('.doc-header');if(!el)return;var h=el.offsetHeight||0;document.body.style.setProperty('--header-height',h+'px')}function setFooterHeight(){var el=document.querySelector('.doc-footer');if(!el)return;var h=el.offsetHeight||0;document.body.style.setProperty('--footer-height',h+'px')}var img=document.querySelector('.doc-header__image');var fb=document.getElementById('doc-header-fallback');if(img){if(img.complete){setHeaderHeight()}else{img.addEventListener('load',setHeaderHeight)}img.addEventListener('error',function(){if(fb)fb.style.display='block';setHeaderHeight()})}else{if(fb)fb.style.display='block';setHeaderHeight()}var footerImgs=document.querySelectorAll('.doc-footer__image');footerImgs.forEach(function(fi){if(fi.complete){setFooterHeight()}else{fi.addEventListener('load',setFooterHeight)}fi.addEventListener('error',setFooterHeight)});window.addEventListener('resize',function(){setHeaderHeight();setFooterHeight()});setHeaderHeight();setFooterHeight()})();window.onload=function(){setTimeout(function(){window.print()},150);setTimeout(function(){window.close()},350)}</script></body></html>`;
   };
 
   const performExportPDF = () => {
