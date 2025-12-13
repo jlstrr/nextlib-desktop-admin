@@ -111,7 +111,7 @@ function Login() {
           </div>
 
           {/* Keep Logged In and Forgot Password */}
-          <div className="flex items-center justify-between mb-6">
+          {/* <div className="flex items-center justify-between mb-6">
             <label className="flex items-center">
               <input
                 type="checkbox"
@@ -124,7 +124,7 @@ function Login() {
             <a href="#" className="text-sm text-yellow-500 hover:text-yellow-600 font-medium">
               Forgot Password?
             </a>
-          </div>
+          </div> */}
 
           {/* Login Button */}
           <button

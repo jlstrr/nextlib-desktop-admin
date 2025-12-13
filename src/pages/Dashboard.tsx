@@ -34,6 +34,9 @@ function Dashboard() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const adminData = localStorage.getItem('admin');
+  const admin = adminData ? JSON.parse(adminData) : null;
+  const isSuperAdmin = !!admin?.isSuperAdmin;
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -199,23 +202,25 @@ function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Quick Access */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">Quick Access</h2>
+          {!isSuperAdmin && (
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-800">Quick Access</h2>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                {quickActions.map((action, index) => (
+                  <button
+                    key={index}
+                    onClick={() => navigate(action.route)}
+                    className="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                  >
+                    <div className="mb-2">{action.icon}</div>
+                    <span className="text-xs text-center text-gray-600">{action.name}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              {quickActions.map((action, index) => (
-                <button
-                  key={index}
-                  onClick={() => navigate(action.route)}
-                  className="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
-                >
-                  <div className="mb-2">{action.icon}</div>
-                  <span className="text-xs text-center text-gray-600">{action.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          )}
 
           {/* Recent Activity */}
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">

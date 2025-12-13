@@ -1,4 +1,5 @@
-const API_ENDPOINT = 'http://localhost:4000/api/v1/';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_ENDPOINT = `${API_BASE_URL}/api/v1/`;
 
 export async function getSystemDefault() {
     const response = await fetch(`${API_ENDPOINT}system-defaults/current`, {
