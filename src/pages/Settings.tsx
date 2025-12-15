@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { getCourses, createCourse, updateCourse, deleteCourse } from '../api/courses';
-import { getCurrentAcademicYear, getAcademicYears, createAcademicYear, updateAcademicYear, setActiveAcademicYear } from '../api/academic-config';
+import { getCurrentAcademicYear, getAcademicYears, createAcademicYear, updateAcademicYear, setActiveAcademicYear, deleteAcademicYear } from '../api/academic-config';
 import { getSystemDefault, updateSystemDefault } from '../api/system-default';
 
 function Settings() {
@@ -32,6 +32,10 @@ function Settings() {
   const [editingAy, setEditingAy] = useState<any | null>(null);
   const [isAySubmitting, setIsAySubmitting] = useState(false);
   const [ayError, setAyError] = useState<string | null>(null);
+  const [isAyDeleteOpen, setIsAyDeleteOpen] = useState(false);
+  const [deleteAyId, setDeleteAyId] = useState<string | null>(null);
+  const [isAyDeleteSubmitting, setIsAyDeleteSubmitting] = useState(false);
+  const [ayDeleteError, setAyDeleteError] = useState<string | null>(null);
   const [ayForm, setAyForm] = useState({
     school_year: '',
     notes: '',
@@ -236,6 +240,29 @@ function Settings() {
     setIsAyEditOpen(false);
     setEditingAy(null);
     setAyError(null);
+  };
+  const handleOpenAyDelete = (id: string) => {
+    setDeleteAyId(id);
+    setAyDeleteError(null);
+    setIsAyDeleteOpen(true);
+  };
+  const handleCloseAyDelete = () => {
+    setIsAyDeleteOpen(false);
+    setDeleteAyId(null);
+  };
+  const handleConfirmAyDelete = async () => {
+    if (!deleteAyId) return;
+    setIsAyDeleteSubmitting(true);
+    try {
+      await deleteAcademicYear(deleteAyId);
+      setIsAyDeleteOpen(false);
+      fetchAcademicConfig();
+      fetchAcademicYears();
+    } catch (e) {
+      setAyDeleteError('Failed to delete academic configuration');
+    } finally {
+      setIsAyDeleteSubmitting(false);
+    }
   };
 
   const validateAyForm = () => {
@@ -841,6 +868,10 @@ function Settings() {
                                       }}
                                     >Set Active</button>
                                   )}
+                                  <button
+                                    className="px-3 py-1 text-xs font-semibold bg-red-500 hover:bg-red-600 text-white rounded"
+                                    onClick={() => handleOpenAyDelete(cfg._id)}
+                                  >Delete</button>
                                 </div>
                               </td>
                             </tr>
@@ -1101,6 +1132,36 @@ function Settings() {
                       <button type="submit" disabled={isAySubmitting} className="px-4 py-2 text-sm font-medium text-white bg-indigo-700 rounded-lg hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">{isAySubmitting ? 'Saving...' : 'Save'}</button>
                     </div>
                   </form>
+                </div>
+              </DialogPanel>
+            </div>
+          </Dialog>
+          {/* AY Delete Dialog */}
+          <Dialog open={isAyDeleteOpen} onClose={handleCloseAyDelete} className="relative z-50">
+            <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+            <div className="fixed inset-0 flex items-center justify-center p-4">
+              <DialogPanel className="mx-auto max-w-sm w-full bg-white rounded-xl shadow-xl">
+                <div className="p-6">
+                  <DialogTitle className="text-xl font-bold text-gray-800 mb-4">Delete Academic Configuration</DialogTitle>
+                  <p className="mb-6 text-gray-700">Are you sure you want to delete this academic configuration? This action cannot be undone.</p>
+                  {ayDeleteError && <p className="text-sm text-red-600">{ayDeleteError}</p>}
+                  <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+                    <button
+                      type="button"
+                      onClick={handleCloseAyDelete}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isAyDeleteSubmitting}
+                      onClick={handleConfirmAyDelete}
+                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isAyDeleteSubmitting ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
                 </div>
               </DialogPanel>
             </div>

@@ -104,3 +104,18 @@ export async function setActiveAcademicYear(id: string) {
     }
     return response.json();
 }
+
+export async function deleteAcademicYear(id: string) {
+    const response = await fetch(`${API_ENDPOINT}system-config/${id}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete academic year');
+    }
+    return response.json();
+}
