@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Switch } from '@headlessui/react';
 import { getAllAdmins, createAdmin, updateAdmin, deleteAdmin } from '../api/admin';
+import { RefreshCcw } from 'lucide-react';
 
 interface Admin {
   _id: string;
@@ -203,12 +204,32 @@ function Admin() {
           <h1 className="text-2xl font-bold text-gray-800">Admin Management</h1>
           <p className="text-sm text-gray-500 mt-1">Dashboard / Admin</p>
         </div>
-        <button 
-          onClick={handleAddNewAdmin}
-          className="bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium"
-        >
-          Add New Admin
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => fetchAdmins()}
+            disabled={isLoading}
+            aria-label="Refresh admins"
+            className="inline-flex items-center gap-2 bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {isLoading ? (
+              <>
+                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <RefreshCcw className="w-4 h-4" />
+                Refresh
+              </>
+            )}
+          </button>
+          <button 
+            onClick={handleAddNewAdmin}
+            className="bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium"
+          >
+            Add New Admin
+          </button>
+        </div>
       </div>
 
       <Dialog open={isCreateDialogOpen} onClose={() => !isSubmitting && setIsCreateDialogOpen(false)} className="relative z-50">

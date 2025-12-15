@@ -6,6 +6,7 @@ import { getAllUsers, addUser, updateUser, deleteUser, bulkUserImport } from '..
 import { getCourses } from '../api/courses';
 import { getSystemDefault } from '../api/system-default';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { RefreshCcw, Plus, FileDown } from 'lucide-react';
 
 interface User {
   _id: string;
@@ -552,16 +553,36 @@ function Users() {
           <p className="text-sm text-gray-500 mt-1">Dashboard / Users</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => fetchUsers()}
+            disabled={loading}
+            aria-label="Refresh users"
+            className="inline-flex items-center gap-2 bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {loading ? (
+              <>
+                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <RefreshCcw className="w-4 h-4" />
+                Refresh
+              </>
+            )}
+          </button>
           <button 
             onClick={handleOpenImportDialog}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            className="inline-flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
           >
+            <FileDown className="w-4 h-4" />
             Import Data
           </button>
           <button 
             onClick={handleAddNewUser}
-            className="bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            className="inline-flex items-center gap-2 bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium"
           >
+            <Plus className="w-4 h-4" />
             Add New User
           </button>
         </div>

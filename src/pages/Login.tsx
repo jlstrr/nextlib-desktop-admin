@@ -167,7 +167,7 @@ function Login() {
 
       {/* Footer */}
       <div className="mt-8 text-center text-xs text-gray-500">
-        © 2025 iReserve - USTP Jasaan. All rights reserved.
+        © 2025 NextLib System - USTP Jasaan. All rights reserved.
       </div>
     </div>
   );

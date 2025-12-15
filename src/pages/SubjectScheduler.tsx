@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Grid3X3, List, Calendar, ChevronUp, ChevronDown, Search, MapPin, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Grid3X3, List, Calendar, ChevronUp, ChevronDown, Search, MapPin, Clock, RefreshCcw, Plus } from 'lucide-react';
 import { Dialog } from '@headlessui/react';
 import { getSubjectSchedules, createSubjectSchedule, deleteSubjectSchedule, updateSubjectSchedule } from '../api/subject-scheduler';
+import SpinnerOverlay from '../components/SpinnerOverlay';
 
 interface Schedule {
   id: string;
@@ -12,6 +13,7 @@ interface Schedule {
   isRepeat: boolean;
   repeatInterval?: string;
   repeatEndDate?: string;
+  subjectCode: string;
 }
 
 // Mock data
@@ -27,6 +29,7 @@ interface FormData {
   isRepeat: boolean;
   repeatInterval: string;
   repeatEndDate: string;
+  subjectCode: string;
 }
 
 function SubjectScheduler() {
@@ -36,11 +39,14 @@ function SubjectScheduler() {
   const [schedules, setSchedules] = useState<Schedule[]>(mockSchedules);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [isBusy, setIsBusy] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   
   // Load schedules from API on component mount
   useEffect(() => {
     const loadSchedules = async () => {
       try {
+        setIsBusy(true);
         const data = await getSubjectSchedules();
         if (Array.isArray(data)) {
           setSchedules(mapApiResponseToSchedules(data));
@@ -48,6 +54,8 @@ function SubjectScheduler() {
       } catch (error) {
         console.error('Error loading schedules:', error);
         // Keep mock data on error
+      } finally {
+        setIsBusy(false);
       }
     };
     loadSchedules();
@@ -63,6 +71,7 @@ function SubjectScheduler() {
   // Form state
   const [formData, setFormData] = useState<FormData>({
     subjectName: '',
+    subjectCode: '',
     instructorName: '',
     date: '',
     timeslot: '',
@@ -82,6 +91,8 @@ function SubjectScheduler() {
   const [currentPage, setCurrentPage] = useState(1);
   const [repeatFilter, setRepeatFilter] = useState<'all' | 'repeat' | 'non-repeat'>('all');
   const itemsPerPage = 10;
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
   // Helper function to map API response to Schedule interface
   const mapApiResponseToSchedules = (data: any[]): Schedule[] => {
@@ -94,7 +105,25 @@ function SubjectScheduler() {
       isRepeat: schedule.isRepeat,
       repeatInterval: schedule.repeatInterval,
       repeatEndDate: schedule.repeatEndDate,
+      subjectCode: schedule.subjectCode || '',
     }));
+  };
+
+  const refreshSchedules = async () => {
+    try {
+      setIsBusy(true);
+      setIsRefreshing(true);
+      setRefreshError(null);
+      const data = await getSubjectSchedules();
+      if (Array.isArray(data)) {
+        setSchedules(mapApiResponseToSchedules(data));
+      }
+    } catch (error) {
+      setRefreshError(error instanceof Error ? error.message : 'Failed to refresh schedules');
+    } finally {
+      setIsRefreshing(false);
+      setIsBusy(false);
+    }
   };
 
   const daysInMonth = (date: Date) => {
@@ -130,10 +159,12 @@ function SubjectScheduler() {
       isRepeat: false,
       repeatInterval: '',
       repeatEndDate: '',
+      subjectCode: '',
     });
     setStartTime('');
     setEndTime('');
     setCreateError('');
+    setFieldErrors({});
     setIsCreateOpen(true);
   };
 
@@ -151,6 +182,7 @@ function SubjectScheduler() {
       isRepeat: schedule.isRepeat,
       repeatInterval: schedule.repeatInterval || '',
       repeatEndDate: repeatDateOnly,
+      subjectCode: schedule.subjectCode || '',
     });
     // Parse timeslot into start and end time
     if (schedule.timeslot) {
@@ -159,6 +191,7 @@ function SubjectScheduler() {
       setEndTime(end?.trim() || '');
     }
     setEditError('');
+    setFieldErrors({});
     setIsEditOpen(true);
   };
 
@@ -170,6 +203,7 @@ function SubjectScheduler() {
   const handleConfirmDelete = async () => {
     if (deletingScheduleId) {
       try {
+        setIsBusy(true);
         console.log('Deleting schedule with ID:', deletingScheduleId);
         await deleteSubjectSchedule(deletingScheduleId);
         console.log('Schedule deleted successfully');
@@ -183,13 +217,34 @@ function SubjectScheduler() {
       } catch (error) {
         console.error('Error deleting schedule:', error);
         alert(`Error deleting schedule: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      } finally {
+        setIsBusy(false);
       }
     }
   };
 
+  const subjectCodeRegex = /^[A-Z0-9-]{2,12}$/;
+  const validateForm = (isEdit: boolean) => {
+    const errors: Record<string, string> = {};
+    if (!formData.subjectCode?.trim()) {
+      errors.subjectCode = 'Subject code is required';
+    } else if (!subjectCodeRegex.test(formData.subjectCode.trim())) {
+      errors.subjectCode = 'Use A–Z, 0–9, dash, 2–12 chars';
+    } else {
+      const code = formData.subjectCode.trim();
+      const duplicate = schedules.find(s => s.subjectCode === code && (!isEdit || s.id !== editingSchedule?.id));
+      if (duplicate) {
+        errors.subjectCode = 'Subject code must be unique';
+      }
+    }
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleCreateSubmit = async () => {
-    if (formData.subjectName && formData.instructorName && formData.date && startTime && endTime) {
+    if (formData.subjectName && formData.instructorName && formData.date && startTime && endTime && validateForm(false)) {
       try {
+        setIsBusy(true);
         setCreateError('');
         const timeslot = `${startTime} - ${endTime}`;
         // Convert date from yyyy-MM-dd to ISO format for API
@@ -206,6 +261,7 @@ function SubjectScheduler() {
             repeatInterval: formData.repeatInterval,
             repeatEndDate: repeatEndIsoDate,
           }),
+          subjectCode: formData.subjectCode.trim(),
         };
         await createSubjectSchedule(payload);
         setIsCreateOpen(false);
@@ -218,13 +274,16 @@ function SubjectScheduler() {
         console.error('Error creating schedule:', error);
         const errorMessage = error instanceof Error ? error.message : 'Error creating schedule';
         setCreateError(errorMessage);
+      } finally {
+        setIsBusy(false);
       }
     }
   };
 
   const handleEditSubmit = async () => {
-    if (editingSchedule && formData.subjectName && formData.instructorName && formData.date && startTime && endTime) {
+    if (editingSchedule && formData.subjectName && formData.instructorName && formData.date && startTime && endTime && validateForm(true)) {
       try {
+        setIsBusy(true);
         setEditError('');
         const timeslot = `${startTime} - ${endTime}`;
         // Convert date from yyyy-MM-dd to ISO format for API
@@ -241,6 +300,7 @@ function SubjectScheduler() {
             repeatInterval: formData.repeatInterval,
             repeatEndDate: repeatEndIsoDate,
           }),
+          subjectCode: formData.subjectCode.trim(),
         };
         await updateSubjectSchedule(editingSchedule.id, payload);
         setIsEditOpen(false);
@@ -254,6 +314,8 @@ function SubjectScheduler() {
         console.error('Error updating schedule:', error);
         const errorMessage = error instanceof Error ? error.message : 'Error updating schedule';
         setEditError(errorMessage);
+      } finally {
+        setIsBusy(false);
       }
     }
   };
@@ -272,7 +334,7 @@ function SubjectScheduler() {
     <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900">{schedule.subjectName}</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{schedule.subjectName} ({schedule.subjectCode})</h3>
           <p className="text-sm text-gray-600">{schedule.instructorName}</p>
         </div>
         <div className="flex gap-2">
@@ -418,7 +480,7 @@ function SubjectScheduler() {
           <table className="w-full">
             <thead>
               <tr className=" text-black border-b border-gray-200">
-                <th className="px-6 py-4 text-left text-sm font-semibold">No.</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold">Subject Code</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold">
                   <SortHeader column="subjectName" label="Subject Name" />
                 </th>
@@ -435,11 +497,11 @@ function SubjectScheduler() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {paginatedData.length > 0 ? (
-                paginatedData.map((schedule, index) => (
+                paginatedData.map((schedule) => (
                   <tr
                     key={schedule.id}
                   >
-                    <td className="px-6 py-4 text-sm text-gray-700">{start + index + 1}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{schedule.subjectCode}</td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{schedule.subjectName}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{schedule.instructorName}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">
@@ -680,10 +742,29 @@ function SubjectScheduler() {
         {/* Action Buttons */}
         <div className="flex gap-3">
           <button
-            onClick={handleCreateNew}
-            className="bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            onClick={refreshSchedules}
+            disabled={isRefreshing}
+            aria-label="Refresh subject schedules"
+            className="inline-flex items-center gap-2 bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            + Schedule new subject
+            {isRefreshing ? (
+              <>
+                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <RefreshCcw className="w-4 h-4" />
+                Refresh
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleCreateNew}
+            className="inline-flex items-center gap-2 bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Schedule new subject
           </button>
 
           {/* View Toggle Buttons */}
@@ -724,6 +805,11 @@ function SubjectScheduler() {
           </div>
         </div>
       </div>
+      {refreshError && (
+        <div role="alert" aria-live="assertive" className="text-red-600">
+          {refreshError}
+        </div>
+      )}
 
       {/* View Content */}
       <div className="">
@@ -744,11 +830,26 @@ function SubjectScheduler() {
 
               <div className="space-y-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Subject Code</label>
+                  <input
+                    type="text"
+                    value={formData.subjectCode}
+                    onChange={(e) => setFormData({ ...formData, subjectCode: e.target.value.toUpperCase() })}
+                    disabled={isBusy}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., CS101"
+                  />
+                  {fieldErrors.subjectCode && (
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.subjectCode}</p>
+                  )}
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Subject Name</label>
                   <input
                     type="text"
                     value={formData.subjectName}
                     onChange={(e) => setFormData({ ...formData, subjectName: e.target.value })}
+                    disabled={isBusy}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., Data Structures"
                   />
@@ -760,6 +861,7 @@ function SubjectScheduler() {
                     type="text"
                     value={formData.instructorName}
                     onChange={(e) => setFormData({ ...formData, instructorName: e.target.value })}
+                    disabled={isBusy}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., Dr. Juan Dela Cruz"
                   />
@@ -771,6 +873,7 @@ function SubjectScheduler() {
                     type="date"
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    disabled={isBusy}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -784,6 +887,7 @@ function SubjectScheduler() {
                         type="time"
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
+                        disabled={isBusy}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -794,6 +898,7 @@ function SubjectScheduler() {
                         type="time"
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
+                        disabled={isBusy}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -805,6 +910,7 @@ function SubjectScheduler() {
                     type="checkbox"
                     checked={formData.isRepeat}
                     onChange={(e) => setFormData({ ...formData, isRepeat: e.target.checked })}
+                    disabled={isBusy}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <label className="ml-2 block text-sm text-gray-700">Repeating Class</label>
@@ -817,6 +923,7 @@ function SubjectScheduler() {
                       <select
                         value={formData.repeatInterval}
                         onChange={(e) => setFormData({ ...formData, repeatInterval: e.target.value })}
+                        disabled={isBusy}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Select interval</option>
@@ -833,6 +940,7 @@ function SubjectScheduler() {
                         type="date"
                         value={formData.repeatEndDate}
                         onChange={(e) => setFormData({ ...formData, repeatEndDate: e.target.value })}
+                        disabled={isBusy}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -855,7 +963,8 @@ function SubjectScheduler() {
                 </button>
                 <button
                   onClick={handleCreateSubmit}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors"
+                  disabled={isBusy}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Create
                 </button>
@@ -877,11 +986,25 @@ function SubjectScheduler() {
 
               <div className="space-y-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Subject Code</label>
+                  <input
+                    type="text"
+                    value={formData.subjectCode}
+                    onChange={(e) => setFormData({ ...formData, subjectCode: e.target.value.toUpperCase() })}
+                    disabled={isBusy}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {fieldErrors.subjectCode && (
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.subjectCode}</p>
+                  )}
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Subject Name</label>
                   <input
                     type="text"
                     value={formData.subjectName}
                     onChange={(e) => setFormData({ ...formData, subjectName: e.target.value })}
+                    disabled={isBusy}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -892,6 +1015,7 @@ function SubjectScheduler() {
                     type="text"
                     value={formData.instructorName}
                     onChange={(e) => setFormData({ ...formData, instructorName: e.target.value })}
+                    disabled={isBusy}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -902,6 +1026,7 @@ function SubjectScheduler() {
                     type="date"
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    disabled={isBusy}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -915,6 +1040,7 @@ function SubjectScheduler() {
                         type="time"
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
+                        disabled={isBusy}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -925,6 +1051,7 @@ function SubjectScheduler() {
                         type="time"
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
+                        disabled={isBusy}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -936,6 +1063,7 @@ function SubjectScheduler() {
                     type="checkbox"
                     checked={formData.isRepeat}
                     onChange={(e) => setFormData({ ...formData, isRepeat: e.target.checked })}
+                    disabled={isBusy}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <label className="ml-2 block text-sm text-gray-700">Repeating Class</label>
@@ -948,6 +1076,7 @@ function SubjectScheduler() {
                       <select
                         value={formData.repeatInterval}
                         onChange={(e) => setFormData({ ...formData, repeatInterval: e.target.value })}
+                        disabled={isBusy}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Select interval</option>
@@ -964,6 +1093,7 @@ function SubjectScheduler() {
                         type="date"
                         value={formData.repeatEndDate}
                         onChange={(e) => setFormData({ ...formData, repeatEndDate: e.target.value })}
+                        disabled={isBusy}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -986,7 +1116,8 @@ function SubjectScheduler() {
                 </button>
                 <button
                   onClick={handleEditSubmit}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"
+                  disabled={isBusy}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Save Changes
                 </button>
@@ -1018,7 +1149,8 @@ function SubjectScheduler() {
                 </button>
                 <button
                   onClick={handleConfirmDelete}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition-colors"
+                  disabled={isBusy}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Delete
                 </button>
@@ -1027,6 +1159,7 @@ function SubjectScheduler() {
           </div>
         </div>
       </Dialog>
+      <SpinnerOverlay visible={isBusy} />
     </div>
   );
 }

@@ -6,10 +6,11 @@ interface ReservationFilters {
     limit?: number;
     date_from?: string;
     date_to?: string;
+    status?: string;
 }
 
 export async function getAllReservations(filters: ReservationFilters = {}) {
-    const { page = 1, limit = 10, date_from, date_to } = filters;
+    const { page = 1, limit = 10, date_from, date_to, status } = filters;
     
     const params = new URLSearchParams();
     params.append('page', page.toString());
@@ -20,6 +21,9 @@ export async function getAllReservations(filters: ReservationFilters = {}) {
     }
     if (date_to) {
         params.append('date_to', date_to);
+    }
+    if (status && status !== 'all') {
+        params.append('status', status);
     }
     
     const response = await fetch(`${API_ENDPOINT}reservations?${params.toString()}`, {

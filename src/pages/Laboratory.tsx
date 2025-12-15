@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { getAllLaboratories, createLaboratory, updateLaboratory, deleteLaboratory, updateLaboratoryStatus } from '../api/laboratory';
+import { RefreshCcw, Plus } from 'lucide-react';
 
 interface Laboratory {
   id: string;
@@ -200,9 +201,30 @@ function Laboratory() {
           <h1 className="text-2xl font-bold text-gray-800">Laboratories</h1>
           <p className="text-sm text-gray-500 mt-1">Dashboard / Laboratories</p>
         </div>
-        <button onClick={handleAddNewLaboratory} className="bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
-          Add New Laboratory
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => fetchLaboratories()}
+            disabled={isLoading}
+            aria-label="Refresh laboratories"
+            className="inline-flex items-center gap-2 bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {isLoading ? (
+              <>
+                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <RefreshCcw className="w-4 h-4" />
+                Refresh
+              </>
+            )}
+          </button>
+          <button onClick={handleAddNewLaboratory} className="inline-flex items-center gap-2 bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            <Plus className="w-4 h-4" />
+            Add New Laboratory
+          </button>
+        </div>
       </div>
 
       {/* Statistics Cards */}

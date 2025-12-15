@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { getAllReservations, updateReservationStatus, approveReservation, rejectReservation } from '../api/reservation';
+import { RefreshCcw } from 'lucide-react';
 
 interface User {
   _id: string;
@@ -59,10 +60,15 @@ function Reservations() {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string>(() => {
+    const urlStatus = new URLSearchParams(window.location.search).get('status');
+    const saved = localStorage.getItem('reservationStatusFilter');
+    return (urlStatus || saved || 'all').toLowerCase();
+  });
 
   useEffect(() => {
     fetchReservations();
-  }, [currentPage, itemsPerPage]);
+  }, [currentPage, itemsPerPage, selectedStatus]);
 
   useEffect(() => {
     // Client-side search in displayed reservations (ID, Name, Status only)
@@ -95,6 +101,9 @@ function Reservations() {
       if (!ignoreDateFilters) {
         if (dateFrom) filters.date_from = dateFrom;
         if (dateTo) filters.date_to = dateTo;
+      }
+      if (selectedStatus && selectedStatus !== 'all') {
+        filters.status = selectedStatus;
       }
       const response = await getAllReservations(filters);
       setReservations(response.data.reservations);
@@ -177,6 +186,11 @@ function Reservations() {
     }
   };
 
+  const totalReservations = reservations.length
+  const pendingReservations = reservations.filter(r => r.status.toLowerCase() === 'pending').length
+  const activeReservations = reservations.filter(r => r.status.toLowerCase() === 'active').length
+  const completedReservations = reservations.filter(r => r.status.toLowerCase() === 'completed').length
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -184,6 +198,82 @@ function Reservations() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Reservation Management</h1>
           <p className="text-sm text-gray-500 mt-1">Dashboard / Reservation</p>
+        </div>
+        <button
+          onClick={() => fetchReservations(false)}
+          disabled={loading}
+          aria-label="Refresh reservations"
+          className="inline-flex items-center gap-2 bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          {loading ? (
+            <>
+              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+              Refreshing...
+            </>
+          ) : (
+            <>
+              <RefreshCcw className="w-4 h-4" />
+              Refresh
+            </>
+          )}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Total Reservations</p>
+              <p className="text-2xl font-bold text-gray-800 mt-1">{totalReservations}</p>
+            </div>
+            <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-indigo-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h8M8 11h8m-9 8l-3-3H5a2 2 0 002-2V6a2 2 0 012-2h6a2 2 0 012 2v10a2 2 0 002 2h1l-3 3M7 7h10" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Pending</p>
+              <p className="text-2xl font-bold text-gray-800 mt-1">{pendingReservations}</p>
+            </div>
+            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-yellow-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Active</p>
+              <p className="text-2xl font-bold text-gray-800 mt-1">{activeReservations}</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3l-4 4H7a4 4 0 000 8h2l4 4v-7h2a3 3 0 000-6h-2z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Completed</p>
+              <p className="text-2xl font-bold text-gray-800 mt-1">{completedReservations}</p>
+            </div>
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -197,6 +287,36 @@ function Reservations() {
             onChange={(e) => setSearchInput(e.target.value)}
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
           />
+          <div className="flex items-center gap-2">
+            <label htmlFor="statusFilter" className="text-sm text-gray-600 whitespace-nowrap">
+              Filter by Status:
+            </label>
+            <select
+              id="statusFilter"
+              aria-label="Filter by Status"
+              value={selectedStatus}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSelectedStatus(value);
+                localStorage.setItem('reservationStatusFilter', value);
+                const params = new URLSearchParams(window.location.search);
+                if (value === 'all') {
+                  params.delete('status');
+                } else {
+                  params.set('status', value);
+                }
+                const newUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}${window.location.hash}`;
+                window.history.replaceState(null, '', newUrl);
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
           <div className="relative">
             <button 
               onClick={() => setShowFilterDropdown(!showFilterDropdown)}
@@ -205,7 +325,7 @@ function Reservations() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
-              Filter
+              Date Filter
             </button>
             {showFilterDropdown && (
               <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-20 p-4">
@@ -284,7 +404,7 @@ function Reservations() {
           style={{ minHeight: loading ? 400 : Math.max(200, filteredReservations.length * 56 + 120) }}
         >
           {loading && (
-            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10" aria-live="polite">
               <div className="flex flex-col items-center gap-3">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-700"></div>
                 <p className="text-gray-600 text-sm">Loading reservations...</p>
@@ -292,7 +412,7 @@ function Reservations() {
             </div>
           )}
           {error && (
-            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10" role="alert" aria-live="assertive">
               <p className="text-red-600">Error: {error}</p>
             </div>
           )}

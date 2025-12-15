@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { resetPassword } from '../api/admin';
+import { Link } from 'react-router-dom';
 
 function ResetPassword() {
   const navigate = useNavigate();
@@ -236,11 +237,19 @@ function ResetPassword() {
           >
             {isLoading ? 'Resetting...' : 'Reset Password'}
           </button>
+          <div className="mt-4 text-center">
+            <Link
+              to="/"
+              className="text-sm text-indigo-700 hover:text-indigo-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded"
+            >
+              Back to Login
+            </Link>
+          </div>
         </form>
       </div>
 
       <div className="mt-8 text-center text-xs text-gray-500">
-        © 2025 iReserve - USTP Jasaan. All rights reserved.
+        © 2025 NextLib System - USTP Jasaan. All rights reserved.
       </div>
     </div>
   );
