@@ -85,3 +85,35 @@ export async function updateReservationStatus(reservationId: string, status: str
     }
     return response.json();
 }
+
+export async function walkInReservation(reservationData: any) {
+    const response = await fetch(`${API_ENDPOINT}reservations/walk-in`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+        body: JSON.stringify(reservationData),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to walk-in reservation');
+    }
+    return response.json();
+}
+
+export async function createReservation(reservationData: any) {
+    const response = await fetch(`${API_ENDPOINT}reservations`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+        body: JSON.stringify(reservationData),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to create reservation');
+    }
+    return response.json();
+}

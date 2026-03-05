@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Switch } from '@headlessui/react';
-import { getAllAdmins, createAdmin, updateAdmin, deleteAdmin } from '../api/admin';
+import { getAllAdmins, createAdmin, updateAdmin } from '../api/admin';
 import { RefreshCcw } from 'lucide-react';
 
 interface Admin {
@@ -77,7 +77,7 @@ function Admin() {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertVariant, setAlertVariant] = useState<'error' | 'success' | 'info'>('info');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [adminIdToRemove, setAdminIdToRemove] = useState<string | null>(null);
+  const [adminToToggle, setAdminToToggle] = useState<{ id: string, newStatus: string } | null>(null);
   const [showCreatePassword, setShowCreatePassword] = useState(false);
   const [showEditPassword, setShowEditPassword] = useState(false);
 
@@ -130,22 +130,28 @@ function Admin() {
     setIsEditDialogOpen(true);
   };
 
-  const handleRemove = (adminId: string) => {
-    setAdminIdToRemove(adminId);
+  const handleToggleStatus = (admin: Admin) => {
+    const newStatus = admin.status === 'active' ? 'suspended' : 'active';
+    setAdminToToggle({ id: admin._id, newStatus });
     setIsConfirmOpen(true);
   };
 
-  const confirmRemove = async () => {
-    if (!adminIdToRemove) return;
+  const confirmStatusChange = async () => {
+    if (!adminToToggle) return;
     try {
-      await deleteAdmin(adminIdToRemove);
+      await updateAdmin(adminToToggle.id, { status: adminToToggle.newStatus });
       setIsConfirmOpen(false);
-      setAdminIdToRemove(null);
+      setAdminToToggle(null);
       await fetchAdmins();
+      
+      setAlertTitle('Success');
+      setAlertMessage(`Admin has been ${adminToToggle.newStatus === 'active' ? 'activated' : 'suspended'}`);
+      setAlertVariant('success');
+      setIsAlertOpen(true);
     } catch (err) {
       setIsConfirmOpen(false);
       setAlertTitle('Error');
-      setAlertMessage(err instanceof Error ? err.message : 'Failed to delete admin');
+      setAlertMessage(err instanceof Error ? err.message : 'Failed to update admin status');
       setAlertVariant('error');
       setIsAlertOpen(true);
     }
@@ -176,6 +182,7 @@ function Admin() {
     const s = (status || '').toLowerCase();
     if (s === 'active') return 'bg-green-100 text-green-800';
     if (s === 'inactive') return 'bg-gray-200 text-gray-700';
+    if (s === 'suspended') return 'bg-red-100 text-red-800';
     if (s === 'pending') return 'bg-yellow-100 text-yellow-800';
     if (s === 'disabled') return 'bg-red-100 text-red-800';
     return 'bg-gray-100 text-gray-800';
@@ -338,11 +345,24 @@ function Admin() {
         <div className="fixed inset-0 bg-black/30" />
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <DialogPanel className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <DialogTitle className="text-lg font-semibold text-gray-800">Remove Admin</DialogTitle>
-            <div className="mt-2 text-sm text-gray-600">Are you sure you want to remove this admin?</div>
+            <DialogTitle className="text-lg font-semibold text-gray-800">
+              {adminToToggle?.newStatus === 'active' ? 'Activate Admin' : 'Suspend Admin'}
+            </DialogTitle>
+            <div className="mt-2 text-sm text-gray-600">
+              Are you sure you want to {adminToToggle?.newStatus === 'active' ? 'activate' : 'suspend'} this admin?
+            </div>
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={() => setIsConfirmOpen(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
-              <button onClick={confirmRemove} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium">Remove</button>
+              <button 
+                onClick={confirmStatusChange} 
+                className={`px-4 py-2 text-white rounded-lg text-sm font-medium ${
+                  adminToToggle?.newStatus === 'active' 
+                    ? 'bg-green-600 hover:bg-green-700' 
+                    : 'bg-yellow-600 hover:bg-yellow-700'
+                }`}
+              >
+                {adminToToggle?.newStatus === 'active' ? 'Activate' : 'Suspend'}
+              </button>
             </div>
           </DialogPanel>
         </div>
@@ -603,10 +623,14 @@ function Admin() {
                           Edit
                         </button>
                         <button 
-                          onClick={() => handleRemove(admin._id)}
-                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-medium"
+                          onClick={() => handleToggleStatus(admin)}
+                          className={`${
+                            admin.status === 'active' 
+                              ? 'bg-yellow-500 hover:bg-yellow-600' 
+                              : 'bg-green-500 hover:bg-green-600'
+                          } text-white px-3 py-1 rounded text-xs font-medium`}
                         >
-                          Remove
+                          {admin.status === 'active' ? 'Suspend' : 'Activate'}
                         </button>
                       </div>
                     </td>
