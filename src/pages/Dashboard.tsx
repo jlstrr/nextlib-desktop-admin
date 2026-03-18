@@ -62,7 +62,7 @@ function Dashboard() {
       title: 'No. of Admins', 
       value: dashboardData?.statistics.total_admins ?? 0, 
       icon: (
-        <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
         </svg>
       )
@@ -71,7 +71,7 @@ function Dashboard() {
       title: 'No. of Students', 
       value: dashboardData?.statistics.total_students ?? 0, 
       icon: (
-        <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
@@ -82,7 +82,7 @@ function Dashboard() {
       title: 'No. of Active Users', 
       value: dashboardData?.statistics.active_users ?? 0, 
       icon: (
-        <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
         </svg>
       )
@@ -91,11 +91,18 @@ function Dashboard() {
       title: 'No. of Available Computers', 
       value: dashboardData?.statistics.available_computers ?? 0, 
       icon: (
-        <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
       )
     },
+  ];
+
+  const statsStyles = [
+    { ring: 'bg-indigo-100 text-indigo-700', accent: 'from-indigo-50 to-transparent' },
+    { ring: 'bg-emerald-100 text-emerald-700', accent: 'from-emerald-50 to-transparent' },
+    { ring: 'bg-sky-100 text-sky-700', accent: 'from-sky-50 to-transparent' },
+    { ring: 'bg-amber-100 text-amber-700', accent: 'from-amber-50 to-transparent' }
   ];
 
   const quickActions = [
@@ -103,7 +110,7 @@ function Dashboard() {
       name: 'Make Reservation',
       route: '/reservations',
       icon: (
-        <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
         </svg>
       )
@@ -112,7 +119,7 @@ function Dashboard() {
       name: 'Add New User',
       route: '/users',
       icon: (
-        <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
         </svg>
       )
@@ -121,7 +128,7 @@ function Dashboard() {
       name: 'View Computers',
       route: '/computers',
       icon: (
-        <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
       )
@@ -130,7 +137,7 @@ function Dashboard() {
       name: 'Reservation Approval',
       route: '/reservations',
       icon: (
-        <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       )
@@ -139,11 +146,34 @@ function Dashboard() {
       name: 'Report Summary',
       route: '/reports',
       icon: (
-        <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
       )
     },
+  ];
+
+  const quickActionStyles = [
+    {
+      button: 'border-indigo-200 bg-indigo-50 hover:bg-indigo-100 focus:ring-indigo-500',
+      iconWrap: 'bg-indigo-100 text-indigo-700'
+    },
+    {
+      button: 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100 focus:ring-emerald-500',
+      iconWrap: 'bg-emerald-100 text-emerald-700'
+    },
+    {
+      button: 'border-sky-200 bg-sky-50 hover:bg-sky-100 focus:ring-sky-500',
+      iconWrap: 'bg-sky-100 text-sky-700'
+    },
+    {
+      button: 'border-amber-200 bg-amber-50 hover:bg-amber-100 focus:ring-amber-500',
+      iconWrap: 'bg-amber-100 text-amber-700'
+    },
+    {
+      button: 'border-rose-200 bg-rose-50 hover:bg-rose-100 focus:ring-rose-500',
+      iconWrap: 'bg-rose-100 text-rose-700'
+    }
   ];
 
   const recentActivities = dashboardData?.recent_activity ?? [];
@@ -212,11 +242,16 @@ function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {stats.map((stat, index) => (
             <div key={index} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-              <div className="flex items-center justify-between mb-2">
-                <div>{stat.icon}</div>
+              <div className={`h-1 w-full rounded-full bg-gradient-to-r ${statsStyles[index]?.accent || 'from-indigo-50 to-transparent'}`} />
+              <div className="flex items-center justify-between mt-4">
+                <div>
+                  <p className="text-sm text-gray-600">{stat.title}</p>
+                  <p className="text-3xl font-bold text-gray-800 mt-2">{stat.value}</p>
+                </div>
+                <div className={`p-3 rounded-xl ${statsStyles[index]?.ring || 'bg-indigo-100 text-indigo-700'}`}>
+                  {stat.icon}
+                </div>
               </div>
-              <p className="text-sm text-gray-600 mb-1">{stat.title}</p>
-              <p className="text-3xl font-bold text-gray-800">{stat.value}</p>
             </div>
           ))}
         </div>
@@ -233,10 +268,12 @@ function Dashboard() {
                   <button
                     key={index}
                     onClick={() => navigate(action.route)}
-                    className="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                    className={`flex flex-col items-center justify-center p-4 border rounded-lg transition focus:outline-none focus:ring-2 ${quickActionStyles[index]?.button || 'border-gray-200 bg-white hover:bg-gray-50 focus:ring-indigo-500'}`}
                   >
-                    <div className="mb-2">{action.icon}</div>
-                    <span className="text-xs text-center text-gray-600">{action.name}</span>
+                    <div className={`mb-3 p-2 rounded-lg ${quickActionStyles[index]?.iconWrap || 'bg-gray-100 text-gray-700'}`}>
+                      {action.icon}
+                    </div>
+                    <span className="text-xs text-center font-medium text-gray-700">{action.name}</span>
                   </button>
                 ))}
               </div>

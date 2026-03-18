@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
-import { getAllReservations, approveReservation, walkInReservation } from '../api/reservation';
-import { ChevronDown, Plus, RefreshCcw } from 'lucide-react';
+import { getAllReservations, approveReservation, walkInReservation, cancelAllReservations } from '../api/reservation';
+import { Plus, RefreshCcw } from 'lucide-react';
 import { getAllComputers } from '../api/computers';
 import { getAllLaboratories } from '../api/laboratory';
-import { getAllUsers } from '../api/users';
 
 interface User {
   _id: string;
@@ -63,23 +62,30 @@ function Reservations() {
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [approveTargetId, setApproveTargetId] = useState<string | null>(null);
   const [isApproving, setIsApproving] = useState(false);
+  const [showCancelAllDialog, setShowCancelAllDialog] = useState(false);
+  const [isCancellingAll, setIsCancellingAll] = useState(false);
+  const [cancelAllNotes, setCancelAllNotes] = useState('');
   const [isSubmittingWalkIn, setIsSubmittingWalkIn] = useState(false);
   const [showWalkInDialog, setShowWalkInDialog] = useState(false);
   const [walkInType, setWalkInType] = useState<'computer' | 'laboratory'>('computer');
   const [reservationFor, setReservationFor] = useState<'user' | 'guest'>('guest');
-  const [guestName, setGuestName] = useState('');
-  const [targetUserId, setTargetUserId] = useState('');
-  const [users, setUsers] = useState<User[]>([]);
+  const [idNumber, setIdNumber] = useState('');
+  const [guestFirstname, setGuestFirstname] = useState('');
+  const [guestLastname, setGuestLastname] = useState('');
+  const [guestMiddleInitial, setGuestMiddleInitial] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [activateNow, setActivateNow] = useState(true);
   const [computers, setComputers] = useState<Computer[]>([]);
   const [selectedComputerId, setSelectedComputerId] = useState('');
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
   const [selectedLaboratoryId, setSelectedLaboratoryId] = useState('');
   const [walkInDate, setWalkInDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [purpose, setPurpose] = useState('');
   const [duration, setDuration] = useState(60);
   const [notes, setNotes] = useState('');
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [showCreateDropdown, setShowCreateDropdown] = useState(false);
 
   const PURPOSE_OPTIONS = [
     'Academic Research',
@@ -116,24 +122,6 @@ function Reservations() {
   }, [currentPage, itemsPerPage, selectedStatus]);
 
   useEffect(() => {
-    if (showWalkInDialog && reservationFor === 'user') {
-      const fetchUsers = async () => {
-        try {
-          const response = await getAllUsers({ user_type: 'student' }); // Assuming we want students mostly
-          if (response.data && response.data.users) {
-            setUsers(response.data.users);
-          } else if (Array.isArray(response)) {
-             setUsers(response);
-          }
-        } catch (err) {
-          console.error('Failed to fetch users:', err);
-        }
-      };
-      fetchUsers();
-    }
-  }, [showWalkInDialog, reservationFor]);
-
-  useEffect(() => {
     if (showWalkInDialog && walkInType === 'computer') {
       const fetchComputers = async () => {
         try {
@@ -168,6 +156,19 @@ function Reservations() {
       fetchLaboratories();
     }
   }, [showWalkInDialog, walkInType]);
+
+  useEffect(() => {
+    if (reservationFor === 'guest' && walkInType !== 'computer') {
+      setWalkInType('computer');
+      setSelectedLaboratoryId('');
+    }
+  }, [reservationFor, walkInType]);
+
+  useEffect(() => {
+    if (reservationFor === 'guest' && !activateNow) {
+      setActivateNow(true);
+    }
+  }, [reservationFor, activateNow]);
 
   useEffect(() => {
     // Client-side search in displayed reservations (ID, Name, Status only)
@@ -276,6 +277,11 @@ function Reservations() {
   };
 
   const handleWalkInSubmit = async () => {
+    if (reservationFor === 'guest' && walkInType !== 'computer') {
+      alert('Guest can only reserve computers');
+      return;
+    }
+
     if (walkInType === 'computer' && !selectedComputerId) {
       alert('Please select a computer');
       return;
@@ -286,35 +292,61 @@ function Reservations() {
       return;
     }
 
-    if (reservationFor === 'guest' && !guestName.trim()) {
-      alert('Please enter guest name');
+    if (!purpose) {
+      alert('Please select a purpose');
       return;
     }
 
-    if (reservationFor === 'user' && !targetUserId) {
-      alert('Please select a user');
-      return;
-    }
-    
-    // Basic validation
-    if (!walkInDate || !purpose || !duration) {
-      alert('Please fill in all required fields');
-      return;
+    if (reservationFor === 'user') {
+      if (!idNumber.trim()) {
+        alert('Please enter ID number');
+        return;
+      }
+      if (!walkInDate) {
+        alert('Please select a reservation date');
+        return;
+      }
+      if (!startTime || !endTime) {
+        alert('Please provide start time and end time');
+        return;
+      }
+    } else {
+      if (!guestFirstname.trim() || !guestLastname.trim()) {
+        alert('Please enter guest first name and last name');
+        return;
+      }
+      if (!duration || duration <= 0) {
+        alert('Please enter a valid duration');
+        return;
+      }
     }
 
     setIsSubmittingWalkIn(true);
     try {
+      const trimmedGuestMiddleInitial = guestMiddleInitial.trim();
+      const trimmedGuestEmail = guestEmail.trim();
+
       const payload = {
-        walkInType,
-        computerId: walkInType === 'computer' ? selectedComputerId : null,
-        laboratoryId: walkInType === 'laboratory' ? selectedLaboratoryId : null,
-        reservationFor,
-        guestName: reservationFor === 'guest' ? guestName : undefined,
-        userId: reservationFor === 'user' ? targetUserId : undefined,
-        walkInDate,
+        reservation_type: walkInType,
+        computer_id: walkInType === 'computer' ? selectedComputerId : undefined,
+        laboratory_id: walkInType === 'laboratory' ? selectedLaboratoryId : undefined,
+        reservation_date: walkInDate,
+        start_time: reservationFor === 'user' ? startTime : undefined,
+        end_time: reservationFor === 'user' ? endTime : undefined,
+        duration: reservationFor === 'guest' ? duration : undefined,
         purpose,
-        duration,
-        notes
+        notes: notes || undefined,
+        id_number: reservationFor === 'user' ? idNumber.trim() : undefined,
+        guest:
+          reservationFor === 'guest'
+            ? {
+                firstname: guestFirstname.trim(),
+                lastname: guestLastname.trim(),
+                middle_initial: trimmedGuestMiddleInitial ? trimmedGuestMiddleInitial : undefined,
+                email: trimmedGuestEmail ? trimmedGuestEmail : undefined
+              }
+            : undefined,
+        activate_now: reservationFor === 'guest' ? true : undefined
       };
 
       await walkInReservation(payload);
@@ -322,13 +354,19 @@ function Reservations() {
       // Reset form
       setSelectedComputerId('');
       setSelectedLaboratoryId('');
+      setWalkInDate(new Date().toISOString().split('T')[0]);
+      setStartTime('');
+      setEndTime('');
       setPurpose('');
       setDuration(60);
       setNotes('');
-      setGuestName('');
-      setTargetUserId('');
+      setIdNumber('');
+      setGuestFirstname('');
+      setGuestLastname('');
+      setGuestMiddleInitial('');
+      setGuestEmail('');
+      setActivateNow(true);
       setReservationFor('guest');
-      setWalkInDate(new Date().toISOString().split('T')[0]);
       
       setShowWalkInDialog(false);
       await fetchReservations();
@@ -342,6 +380,24 @@ function Reservations() {
 
   const handleWalkIn = () => {
     setShowWalkInDialog(true);
+  };
+
+  const handleCancelAllReservations = async () => {
+    setIsCancellingAll(true);
+    try {
+      setError(null);
+      const notes = cancelAllNotes.trim();
+      await cancelAllReservations(notes ? { notes } : undefined);
+
+      setShowCancelAllDialog(false);
+      setCancelAllNotes('');
+      setCurrentPage(1);
+      await fetchReservations(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cancel all reservations');
+    } finally {
+      setIsCancellingAll(false);
+    }
   };
 
   const totalReservations = reservations.length
@@ -385,6 +441,13 @@ function Reservations() {
               Walk-in Reservation
             </button>
           </div>
+          <button
+            onClick={() => setShowCancelAllDialog(true)}
+            disabled={loading || isCancellingAll}
+            className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-red-500"
+          >
+            {isCancellingAll ? 'Cancelling...' : 'Cancel All'}
+          </button>
         </div>
         
       </div>
@@ -752,15 +815,66 @@ function Reservations() {
         </div>
       </Dialog>
 
+      <Dialog open={showCancelAllDialog} onClose={() => setShowCancelAllDialog(false)} className="relative z-50">
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="mx-auto max-w-sm w-full bg-white rounded-xl shadow-xl">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <DialogTitle className="text-lg font-bold text-gray-800">Cancel All Reservations</DialogTitle>
+              <button
+                onClick={() => setShowCancelAllDialog(false)}
+                className="text-gray-400 hover:text-gray-600"
+                disabled={isCancellingAll}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4">
+              <p className="text-gray-700 mb-6">This will cancel all pending, approved, and active reservations.</p>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                <textarea
+                  value={cancelAllNotes}
+                  onChange={(e) => setCancelAllNotes(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
+                  placeholder="System-wide cancellation due to maintenance"
+                  disabled={isCancellingAll}
+                />
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowCancelAllDialog(false)}
+                  disabled={isCancellingAll}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleCancelAllReservations}
+                  disabled={isCancellingAll}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isCancellingAll && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  )}
+                  {isCancellingAll ? 'Cancelling...' : 'Confirm'}
+                </button>
+              </div>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
       {/* Walk-in Reservation Dialog */}
       <Dialog open={showWalkInDialog} onClose={() => setShowWalkInDialog(false)} className="relative z-50">
         <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <DialogPanel className="mx-auto max-w-md w-full bg-white rounded-xl shadow-xl">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <DialogTitle className="text-lg font-bold text-gray-800">
-                Walk-in {walkInType === 'computer' ? 'Computer' : 'Laboratory'} Reservation
-              </DialogTitle>
+              <DialogTitle className="text-lg font-bold text-gray-800">Walk-in Reservation</DialogTitle>
               <button
                 onClick={() => setShowWalkInDialog(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -792,39 +906,94 @@ function Reservations() {
                         onChange={() => setReservationFor('user')}
                         className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                       />
-                      <span className="text-sm text-gray-700">Registered User</span>
+                      <span className="text-sm text-gray-700">Existing User</span>
                     </label>
                   </div>
                 </div>
 
-                {/* Guest Name or User Select */}
-                {reservationFor === 'guest' ? (
+                {reservationFor === 'user' ? (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Guest Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">ID Number</label>
                     <input
                       type="text"
-                      value={guestName}
-                      onChange={(e) => setGuestName(e.target.value)}
+                      value={idNumber}
+                      onChange={(e) => setIdNumber(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                      placeholder="Enter guest name"
+                      placeholder="e.g. 2020-12345"
                     />
                   </div>
                 ) : (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Select User</label>
-                    <select
-                      value={targetUserId}
-                      onChange={(e) => setTargetUserId(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                    >
-                      <option value="">Select a user...</option>
-                      {users.map((user) => (
-                        <option key={user._id} value={user._id}>
-                          {user.firstname} {user.lastname} ({user.id_number})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                        <input
+                          type="text"
+                          value={guestFirstname}
+                          onChange={(e) => setGuestFirstname(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                          placeholder="Juan"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                        <input
+                          type="text"
+                          value={guestLastname}
+                          onChange={(e) => setGuestLastname(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                          placeholder="Dela Cruz"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Middle Initial (optional)</label>
+                        <input
+                          type="text"
+                          value={guestMiddleInitial}
+                          onChange={(e) => setGuestMiddleInitial(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                          placeholder="M"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email (optional)</label>
+                        <input
+                          type="email"
+                          value={guestEmail}
+                          onChange={(e) => setGuestEmail(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                          placeholder="juan.delacruz@example.com"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)</label>
+                        <input
+                          type="number"
+                          value={duration}
+                          onChange={(e) => setDuration(Number(e.target.value))}
+                          min="15"
+                          step="15"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={activateNow}
+                            onChange={(e) => setActivateNow(e.target.checked)}
+                            disabled
+                            className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                          />
+                          <span className="text-sm text-gray-700">Activate now</span>
+                        </label>
+                      </div>
+                    </div>
+                  </>
                 )}
 
                 {/* Resource Type Toggle */}
@@ -845,11 +1014,15 @@ function Reservations() {
                         type="radio"
                         checked={walkInType === 'laboratory'}
                         onChange={() => setWalkInType('laboratory')}
+                        disabled={reservationFor === 'guest'}
                         className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                       />
-                      <span className="text-sm text-gray-700">Laboratory</span>
+                      <span className={`text-sm ${reservationFor === 'guest' ? 'text-gray-400' : 'text-gray-700'}`}>Laboratory</span>
                     </label>
                   </div>
+                  {reservationFor === 'guest' && (
+                    <div className="text-xs text-gray-500 mt-1">Guests can only reserve computers.</div>
+                  )}
                 </div>
 
                 {walkInType === 'computer' ? (
@@ -890,17 +1063,40 @@ function Reservations() {
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={walkInDate}
-                    onChange={(e) => setWalkInDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  />
-                </div>
+                {reservationFor === 'user' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                      <input
+                        type="date"
+                        value={walkInDate}
+                        onChange={(e) => setWalkInDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                        <input
+                          type="time"
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                        <input
+                          type="time"
+                          value={endTime}
+                          onChange={(e) => setEndTime(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Purpose
@@ -917,19 +1113,6 @@ function Reservations() {
                       </option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Duration (minutes)
-                  </label>
-                  <input
-                    type="number"
-                    value={duration}
-                    onChange={(e) => setDuration(Number(e.target.value))}
-                    min="15"
-                    step="15"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

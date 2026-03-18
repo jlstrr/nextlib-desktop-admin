@@ -16,7 +16,13 @@ export async function getSystemDefault() {
     return response.json();
 }
 
-export async function updateSystemDefault(id: string, payload: { default_allotted_time: string; updateToAllStudents?: boolean }) {
+export interface UpdateSystemDefaultPayload {
+    default_allotted_time?: string;
+    operation_hours?: string;
+    updateToAllStudents?: boolean;
+}
+
+export async function updateSystemDefault(id: string, payload: UpdateSystemDefaultPayload) {
     const response = await fetch(`${API_ENDPOINT}system-defaults/${id}`, {
         method: 'PUT',
         headers: {
@@ -28,6 +34,22 @@ export async function updateSystemDefault(id: string, payload: { default_allotte
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'Failed to update system default');
+    }
+    return response.json();
+}
+
+export async function createSystemDefault(payload: UpdateSystemDefaultPayload) {
+    const response = await fetch(`${API_ENDPOINT}system-defaults`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to create system default');
     }
     return response.json();
 }

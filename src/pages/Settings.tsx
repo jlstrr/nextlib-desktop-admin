@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { getCourses, createCourse, updateCourse, deleteCourse } from '../api/courses';
 import { getCurrentAcademicYear, getAcademicYears, createAcademicYear, updateAcademicYear, setActiveAcademicYear, deleteAcademicYear } from '../api/academic-config';
-import { getSystemDefault, updateSystemDefault } from '../api/system-default';
+import { getSystemDefault, updateSystemDefault, createSystemDefault } from '../api/system-default';
 
 function Settings() {
   const [activeTab, setActiveTab] = useState('semester');
@@ -52,6 +52,12 @@ function Settings() {
   const [defaultTimeSaved, setDefaultTimeSaved] = useState(false);
   const [defaultAllottedTimeHours, setDefaultAllottedTimeHours] = useState<number>(20);
   const [initialDefaultAllottedTime, setInitialDefaultAllottedTime] = useState('20:00:00');
+  const [operationHoursStart, setOperationHoursStart] = useState('08:00');
+  const [operationHoursEnd, setOperationHoursEnd] = useState('17:00');
+  const [initialOperationHours, setInitialOperationHours] = useState('08:00 - 17:00');
+  const [operationHoursPreset, setOperationHoursPreset] = useState<'custom' | '12h' | '10h' | '9h' | '8h'>('custom');
+  const [isSavingOperationHours, setIsSavingOperationHours] = useState(false);
+  const [operationHoursSaved, setOperationHoursSaved] = useState(false);
   const [systemDefaultId, setSystemDefaultId] = useState<string | null>(null);
   const [defaultTimeError, setDefaultTimeError] = useState<string | null>(null);
   const [updateAllStudents, setUpdateAllStudents] = useState(false);
@@ -329,20 +335,49 @@ function Settings() {
           const response = await getSystemDefault();
           const data = response?.data;
           const serverTime = data?.default_allotted_time || '20:00:00';
-          setSystemDefaultId(data?._id || null);
-          setDefaultAllottedTime(serverTime);
-          const h = parseInt(serverTime.split(':')[0] || '20', 10);
-          if (!Number.isNaN(h)) setDefaultAllottedTimeHours(h);
-          setInitialDefaultAllottedTime(serverTime);
+          const serverOperationHours = data?.operation_hours || '08:00 - 17:00';
+          if (!data?._id) {
+            const created = await createSystemDefault({
+              default_allotted_time: serverTime,
+              operation_hours: serverOperationHours
+            });
+            const createdData = created?.data;
+            const createdTime = createdData?.default_allotted_time || serverTime;
+            const createdOperationHours = createdData?.operation_hours || serverOperationHours;
+            setSystemDefaultId(createdData?._id || null);
+            setDefaultAllottedTime(createdTime);
+            const h = parseInt(createdTime.split(':')[0] || '20', 10);
+            if (!Number.isNaN(h)) setDefaultAllottedTimeHours(h);
+            setInitialDefaultAllottedTime(createdTime);
+            const parsed = parseOperationHours(createdOperationHours);
+            setOperationHoursStart(parsed.start);
+            setOperationHoursEnd(parsed.end);
+            setInitialOperationHours(parsed.normalized);
+          } else {
+            setSystemDefaultId(data?._id || null);
+            setDefaultAllottedTime(serverTime);
+            const h = parseInt(serverTime.split(':')[0] || '20', 10);
+            if (!Number.isNaN(h)) setDefaultAllottedTimeHours(h);
+            setInitialDefaultAllottedTime(serverTime);
+            const parsed = parseOperationHours(serverOperationHours);
+            setOperationHoursStart(parsed.start);
+            setOperationHoursEnd(parsed.end);
+            setInitialOperationHours(parsed.normalized);
+          }
           setUpdateAllStudents(false);
           setInitialUpdateAllStudents(false);
         } catch (err) {
           const stored = localStorage.getItem('default_allotted_time');
           const fallback = stored || '20:00:00';
+          const storedOperationHours = localStorage.getItem('operation_hours') || '08:00 - 17:00';
           setDefaultAllottedTime(fallback);
           const h = parseInt(fallback.split(':')[0] || '20', 10);
           if (!Number.isNaN(h)) setDefaultAllottedTimeHours(h);
           setInitialDefaultAllottedTime(fallback);
+          const parsed = parseOperationHours(storedOperationHours);
+          setOperationHoursStart(parsed.start);
+          setOperationHoursEnd(parsed.end);
+          setInitialOperationHours(parsed.normalized);
           setDefaultTimeError('Failed to load default time');
           setUpdateAllStudents(false);
           setInitialUpdateAllStudents(false);
@@ -368,16 +403,111 @@ function Settings() {
   };
 
   const normalizeTime = (val: string) => (val && val.length === 5 ? `${val}:00` : val);
+  const normalizeOperationHours = (start: string, end: string) => `${start} - ${end}`;
+  const parseOperationHours = (val: string | undefined) => {
+    const toTime = (t: string) => (/^\d{2}:\d{2}/.test(t) ? t.slice(0, 5) : '');
+    const fallback = { start: '08:00', end: '17:00', normalized: '08:00 - 17:00' };
+    if (!val) return fallback;
+    if (val.trim().toLowerCase() === '24 hours') return { start: '08:00', end: '07:59', normalized: '08:00 - 07:59' };
+    const parts = val.split('-').map(p => p.trim());
+    if (parts.length < 2) return fallback;
+    const start = toTime(parts[0]);
+    const end = toTime(parts[1]);
+    if (!start || !end) return fallback;
+    return { start, end, normalized: normalizeOperationHours(start, end) };
+  };
+
+  useEffect(() => {
+    const normalized = normalizeOperationHours(operationHoursStart, operationHoursEnd);
+    const preset =
+      normalized === '08:00 - 20:00'
+          ? '12h'
+          : normalized === '08:00 - 18:00'
+            ? '10h'
+            : normalized === '08:00 - 17:00'
+              ? '9h'
+              : normalized === '08:00 - 16:00'
+                ? '8h'
+                : 'custom';
+    if (preset !== operationHoursPreset) setOperationHoursPreset(preset);
+  }, [operationHoursStart, operationHoursEnd, operationHoursPreset]);
+
+  const applyOperationHoursPreset = (preset: typeof operationHoursPreset) => {
+    setOperationHoursPreset(preset);
+    const next =
+      preset === '12h'
+          ? { start: '08:00', end: '20:00' }
+          : preset === '10h'
+            ? { start: '08:00', end: '18:00' }
+            : preset === '9h'
+              ? { start: '08:00', end: '17:00' }
+              : preset === '8h'
+                ? { start: '08:00', end: '16:00' }
+                : null;
+
+    if (!next) return;
+    setOperationHoursStart(next.start);
+    setOperationHoursEnd(next.end);
+    handleSaveOperationHours(next);
+  };
   const setHoursValue = (hours: number) => {
     const h = Math.max(0, hours);
     setDefaultAllottedTimeHours(h);
     const normalized = `${String(h).padStart(2, '0')}:00:00`;
     setDefaultAllottedTime(normalized);
   };
+
+  const persistOperationHours = async (operationHoursNormalized: string) => {
+    if (systemDefaultId) {
+      const res = await updateSystemDefault(systemDefaultId, { operation_hours: operationHoursNormalized });
+      const serverOperationHours = res?.data?.operation_hours || operationHoursNormalized;
+      const parsed = parseOperationHours(serverOperationHours);
+      setOperationHoursStart(parsed.start);
+      setOperationHoursEnd(parsed.end);
+      setInitialOperationHours(parsed.normalized);
+      localStorage.setItem('operation_hours', parsed.normalized);
+      return;
+    }
+
+    const res = await createSystemDefault({ operation_hours: operationHoursNormalized });
+    const created = res?.data;
+    setSystemDefaultId(created?._id || null);
+    const serverOperationHours = created?.operation_hours || operationHoursNormalized;
+    const parsed = parseOperationHours(serverOperationHours);
+    setOperationHoursStart(parsed.start);
+    setOperationHoursEnd(parsed.end);
+    setInitialOperationHours(parsed.normalized);
+    localStorage.setItem('operation_hours', parsed.normalized);
+  };
+
+  const handleSaveOperationHours = (override?: { start: string; end: string }) => {
+    setIsSavingOperationHours(true);
+    setOperationHoursSaved(false);
+    try {
+      setDefaultTimeError(null);
+      const start = override?.start ?? operationHoursStart;
+      const end = override?.end ?? operationHoursEnd;
+      if (!start || !end) {
+        setDefaultTimeError('Please set operation hours (start and end time)');
+        return;
+      }
+      const operationHoursNormalized = normalizeOperationHours(start, end);
+      const save = async () => {
+        await persistOperationHours(operationHoursNormalized);
+        setOperationHoursSaved(true);
+      };
+      save();
+    } finally {
+      setIsSavingOperationHours(false);
+      setTimeout(() => setOperationHoursSaved(false), 2000);
+    }
+  };
+
   const handleSaveDefaultTime = () => {
     setIsSavingDefaultTime(true);
     setDefaultTimeSaved(false);
     try {
+      setDefaultTimeError(null);
       const normalized = normalizeTime(defaultAllottedTime);
       const save = async () => {
         if (systemDefaultId) {
@@ -388,8 +518,14 @@ function Settings() {
           setDefaultAllottedTime(serverTime);
           setInitialDefaultAllottedTime(serverTime);
         } else {
-          setDefaultAllottedTime(normalized);
-          setInitialDefaultAllottedTime(normalized);
+          const payload: { default_allotted_time: string; updateToAllStudents?: boolean } = { default_allotted_time: normalized };
+          if (updateAllStudents) payload.updateToAllStudents = true;
+          const res = await createSystemDefault(payload);
+          const created = res?.data;
+          const serverTime = created?.default_allotted_time || normalized;
+          setSystemDefaultId(created?._id || null);
+          setDefaultAllottedTime(serverTime);
+          setInitialDefaultAllottedTime(serverTime);
         }
         localStorage.setItem('default_allotted_time', normalized);
         setDefaultTimeSaved(true);
@@ -897,6 +1033,83 @@ function Settings() {
               </div>
 
               <div className="space-y-4">
+                <div className="p-4 border border-gray-200 rounded-lg">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-800">Operation Hours</h3>
+                    <p className="text-xs text-gray-600 mt-1">Set system operating time range</p>
+                  </div>
+                  <div className="mt-4 flex flex-col gap-3">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => applyOperationHoursPreset('8h')}
+                        disabled={isSavingOperationHours}
+                        className={`px-3 py-1 text-xs font-semibold rounded-full border ${
+                          operationHoursPreset === '8h' ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        8 hours
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyOperationHoursPreset('9h')}
+                        disabled={isSavingOperationHours}
+                        className={`px-3 py-1 text-xs font-semibold rounded-full border ${
+                          operationHoursPreset === '9h' ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        9 hours
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyOperationHoursPreset('10h')}
+                        disabled={isSavingOperationHours}
+                        className={`px-3 py-1 text-xs font-semibold rounded-full border ${
+                          operationHoursPreset === '10h' ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        10 hours
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyOperationHoursPreset('12h')}
+                        disabled={isSavingOperationHours}
+                        className={`px-3 py-1 text-xs font-semibold rounded-full border ${
+                          operationHoursPreset === '12h' ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        12 hours
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <input
+                        type="time"
+                        value={operationHoursStart}
+                        onChange={(e) => setOperationHoursStart(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-36"
+                      />
+                      <span className="text-sm text-gray-600">to</span>
+                      <input
+                        type="time"
+                        value={operationHoursEnd}
+                        onChange={(e) => setOperationHoursEnd(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-36"
+                      />
+                    <span className="text-sm text-gray-500">{normalizeOperationHours(operationHoursStart, operationHoursEnd)}</span>
+                      {normalizeOperationHours(operationHoursStart, operationHoursEnd) !== initialOperationHours && (
+                        <button
+                          type="button"
+                          onClick={() => handleSaveOperationHours()}
+                          disabled={isSavingOperationHours}
+                          className="px-4 py-2 text-sm font-medium text-white bg-indigo-700 rounded-lg hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isSavingOperationHours ? 'Saving...' : 'Save'}
+                        </button>
+                      )}
+                      {operationHoursSaved && <span className="text-xs text-green-600">Saved</span>}
+                    </div>
+                  </div>
+                </div>
                 <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                   <div>
                     <h3 className="text-sm font-medium text-gray-800">Default Allotted Time</h3>

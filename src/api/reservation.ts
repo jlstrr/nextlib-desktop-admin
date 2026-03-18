@@ -86,7 +86,28 @@ export async function updateReservationStatus(reservationId: string, status: str
     return response.json();
 }
 
-export async function walkInReservation(reservationData: any) {
+export interface WalkInReservationRequest {
+    reservation_type: 'computer' | 'laboratory';
+    computer_id?: string;
+    laboratory_id?: string;
+    reservation_date?: string;
+    start_time?: string;
+    end_time?: string;
+    duration?: number;
+    purpose: string;
+    notes?: string;
+    user_id?: string;
+    id_number?: string;
+    guest?: {
+        firstname: string;
+        lastname: string;
+        middle_initial?: string;
+        email?: string;
+    };
+    activate_now?: boolean;
+}
+
+export async function walkInReservation(reservationData: WalkInReservationRequest) {
     const response = await fetch(`${API_ENDPOINT}reservations/walk-in`, {
         method: 'POST',
         headers: {
@@ -114,6 +135,22 @@ export async function createReservation(reservationData: any) {
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'Failed to create reservation');
+    }
+    return response.json();
+}
+
+export async function cancelAllReservations(payload?: { notes?: string }) {
+    const response = await fetch(`${API_ENDPOINT}reservations/cancel-all`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for session identification
+        body: payload ? JSON.stringify(payload) : undefined,
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to cancel all reservations');
     }
     return response.json();
 }
