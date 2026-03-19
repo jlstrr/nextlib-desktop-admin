@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { getReports } from '../api/reports';
 import { getCourses } from '../api/courses';
 
@@ -28,6 +29,10 @@ function Reports() {
   const [pendingDateFrom, setPendingDateFrom] = useState('');
   const [pendingDateTo, setPendingDateTo] = useState('');
   const dateFilterRef = useRef<HTMLDivElement | null>(null);
+  const [isExportPreviewOpen, setIsExportPreviewOpen] = useState(false);
+  const [exportPreviewHTML, setExportPreviewHTML] = useState('');
+  const [exportActionBusy, setExportActionBusy] = useState(false);
+  const [exportActionError, setExportActionError] = useState<string | null>(null);
 
   // Only fetch data when Generate is clicked
   const fetchReports = async () => {
@@ -110,7 +115,7 @@ function Reports() {
   }, [isDateDropdownOpen]);
 
   // PDF Export Logic (adapted from ComputerUsersPage)
-  const buildExportHTML = (): string => {
+  const buildExportHTML = (options?: { autoPrint?: boolean; autoClose?: boolean }): string => {
     let header = '';
     let rows = '';
     if (reportType === 'daily') {
@@ -241,16 +246,166 @@ function Reports() {
         </div>
       </div>
     `;
-    return `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>${tableTitle}</title><style>:root{--header-height:0px;--footer-height:80px}body{font-family:Arial,sans-serif;padding:24px;padding-top:var(--header-height);padding-bottom:var(--footer-height)}thead th{background:#f3f4f6}tr:nth-child(even){background:#fafafb}.report-body{max-width:900px;margin:0 auto}.signature{margin-top:24pt;text-align:left}.doc-header{position:fixed;top:0;left:0;right:0;margin:0;z-index:9999;background:#ffffff}.doc-header__image{display:block;width:100%;height:auto;object-fit:contain}.doc-header__fallback{display:none;border-bottom:2px solid #1f2937;padding:8px 24px;background:#ffffff}.doc-header__fallback-content{display:flex;align-items:center;justify-content:space-between;gap:12px}.doc-footer{position:fixed;left:0;right:0;bottom:0;background:#ffffff}.doc-footer__content{display:flex;justify-content:center;align-items:center;gap:18pt;padding:8pt 24pt}.doc-footer__image{height:auto;max-height:48pt;width:auto;object-fit:contain}@media print{body{padding-top:var(--header-height);padding-bottom:var(--footer-height)}.doc-header{position:fixed;top:0}.doc-footer{position:fixed;bottom:0}}</style></head><body>${headerHTML}${detailsHTML}${titleHTML}<div class="report-body">${table}${signatureHTML}</div>${footerHTML}<script>(function(){function setHeaderHeight(){var el=document.querySelector('.doc-header');if(!el)return;var h=el.offsetHeight||0;document.body.style.setProperty('--header-height',h+'px')}function setFooterHeight(){var el=document.querySelector('.doc-footer');if(!el)return;var h=el.offsetHeight||0;document.body.style.setProperty('--footer-height',h+'px')}var img=document.querySelector('.doc-header__image');var fb=document.getElementById('doc-header-fallback');if(img){if(img.complete){setHeaderHeight()}else{img.addEventListener('load',setHeaderHeight)}img.addEventListener('error',function(){if(fb)fb.style.display='block';setHeaderHeight()})}else{if(fb)fb.style.display='block';setHeaderHeight()}var footerImgs=document.querySelectorAll('.doc-footer__image');footerImgs.forEach(function(fi){if(fi.complete){setFooterHeight()}else{fi.addEventListener('load',setFooterHeight)}fi.addEventListener('error',setFooterHeight)});window.addEventListener('resize',function(){setHeaderHeight();setFooterHeight()});setHeaderHeight();setFooterHeight()})();window.onload=function(){setTimeout(function(){window.print()},150);setTimeout(function(){window.close()},350)}</script></body></html>`;
+    const shouldAutoPrint = options?.autoPrint ?? false;
+    const shouldAutoClose = options?.autoClose ?? true;
+    const baseHref = typeof window !== 'undefined' ? window.location.origin : '';
+    const baseTag = baseHref ? `<base href="${baseHref}/" />` : '';
+    const autoPrintScript = shouldAutoPrint
+      ? `window.addEventListener('load',function(){setTimeout(function(){window.print()},150);${
+          shouldAutoClose ? `setTimeout(function(){window.close()},350);` : ''
+        }},{once:true});`
+      : '';
+    return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    ${baseTag}
+    <title>${tableTitle}</title>
+    <style>
+      :root{--header-height:0px;--footer-height:80px}
+      body{font-family:Arial,sans-serif;padding:24px;padding-top:var(--header-height);padding-bottom:var(--footer-height)}
+      thead th{background:#f3f4f6}
+      tr:nth-child(even){background:#fafafb}
+      .report-body{max-width:900px;margin:0 auto}
+      .signature{margin-top:24pt;text-align:left}
+      .doc-header{position:fixed;top:0;left:0;right:0;margin:0;z-index:9999;background:#ffffff}
+      .doc-header__image{display:block;width:100%;height:auto;object-fit:contain}
+      .doc-header__fallback{display:none;border-bottom:2px solid #1f2937;padding:8px 24px;background:#ffffff}
+      .doc-header__fallback-content{display:flex;align-items:center;justify-content:space-between;gap:12px}
+      .doc-footer{position:fixed;left:0;right:0;bottom:0;background:#ffffff}
+      .doc-footer__content{display:flex;justify-content:center;align-items:center;gap:18pt;padding:8pt 24pt}
+      .doc-footer__image{height:auto;max-height:48pt;width:auto;object-fit:contain}
+      @media print{
+        body{padding-top:var(--header-height);padding-bottom:var(--footer-height)}
+        .doc-header{position:fixed;top:0}
+        .doc-footer{position:fixed;bottom:0}
+      }
+    </style>
+  </head>
+  <body>
+    ${headerHTML}
+    ${detailsHTML}
+    ${titleHTML}
+    <div class="report-body">
+      ${table}
+      ${signatureHTML}
+    </div>
+    ${footerHTML}
+    <script>
+      (function(){
+        function setHeaderHeight(){
+          var el=document.querySelector('.doc-header');
+          if(!el) return;
+          var h=el.offsetHeight||0;
+          document.body.style.setProperty('--header-height',h+'px');
+        }
+        function setFooterHeight(){
+          var el=document.querySelector('.doc-footer');
+          if(!el) return;
+          var h=el.offsetHeight||0;
+          document.body.style.setProperty('--footer-height',h+'px');
+        }
+        var img=document.querySelector('.doc-header__image');
+        var fb=document.getElementById('doc-header-fallback');
+        if(img){
+          if(img.complete){setHeaderHeight();}
+          else{img.addEventListener('load',setHeaderHeight);}
+          img.addEventListener('error',function(){
+            if(fb) fb.style.display='block';
+            setHeaderHeight();
+          });
+        }else{
+          if(fb) fb.style.display='block';
+          setHeaderHeight();
+        }
+        var footerImgs=document.querySelectorAll('.doc-footer__image');
+        footerImgs.forEach(function(fi){
+          if(fi.complete){setFooterHeight();}
+          else{fi.addEventListener('load',setFooterHeight);}
+          fi.addEventListener('error',setFooterHeight);
+        });
+        window.addEventListener('resize',function(){
+          setHeaderHeight();
+          setFooterHeight();
+        });
+        setHeaderHeight();
+        setFooterHeight();
+        window.__EXPORT_READY__ = false;
+        window.addEventListener('load', function(){ window.__EXPORT_READY__ = true; }, { once: true });
+      })();
+      ${autoPrintScript}
+    </script>
+  </body>
+</html>`;
   };
 
-  const performExportPDF = () => {
-    const html = buildExportHTML();
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
+  const buildSuggestedExportFileName = () => {
+    const ymd = new Date().toISOString().slice(0, 10);
+    const range = (filters.date_from || filters.date_to)
+      ? `${filters.date_from || 'all'}_to_${filters.date_to || 'all'}`
+      : 'all_dates';
+    const raw = `usage-report-${reportType}-${range}-${ymd}.pdf`;
+    return raw.replace(/[^\w.-]+/g, '_');
+  };
+
+  const openExportPreview = () => {
+    setExportActionError(null);
+    setExportPreviewHTML(buildExportHTML({ autoPrint: false }));
+    setIsExportPreviewOpen(true);
+  };
+
+  const closeExportPreview = () => {
+    setIsExportPreviewOpen(false);
+    setExportActionError(null);
+  };
+
+  const performSaveAsPDF = async () => {
+    const html = exportPreviewHTML || buildExportHTML({ autoPrint: false });
+    const suggestedFileName = buildSuggestedExportFileName();
+    setExportActionBusy(true);
+    setExportActionError(null);
+    try {
+      const electronAPI = (window as any)?.electronAPI;
+      if (electronAPI?.exportReportPDF) {
+        const result = await electronAPI.exportReportPDF({ html, suggestedFileName });
+        if (!result?.ok) throw new Error(result?.error || 'Export failed');
+        return;
+      }
+      const win = window.open('', '_blank');
+      if (!win) throw new Error('Unable to open preview window');
+      win.document.open();
+      win.document.write(buildExportHTML({ autoPrint: true, autoClose: false }));
+      win.document.close();
+      win.focus();
+    } catch (e) {
+      setExportActionError(e instanceof Error ? e.message : 'Export failed');
+    } finally {
+      setExportActionBusy(false);
+    }
+  };
+
+  const performPrint = async () => {
+    const html = exportPreviewHTML || buildExportHTML({ autoPrint: false });
+    setExportActionBusy(true);
+    setExportActionError(null);
+    try {
+      const electronAPI = (window as any)?.electronAPI;
+      if (electronAPI?.printReport) {
+        const result = await electronAPI.printReport({ html });
+        if (!result?.ok) throw new Error(result?.error || 'Print failed');
+        return;
+      }
+      const win = window.open('', '_blank');
+      if (!win) throw new Error('Unable to open print window');
+      win.document.open();
+      win.document.write(buildExportHTML({ autoPrint: true, autoClose: true }));
+      win.document.close();
+      win.focus();
+    } catch (e) {
+      setExportActionError(e instanceof Error ? e.message : 'Print failed');
+    } finally {
+      setExportActionBusy(false);
+    }
   };
 
   return (
@@ -262,11 +417,65 @@ function Reports() {
         </div>
         <button
           className="bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-2 rounded-lg text-sm font-medium"
-          onClick={performExportPDF}
+          onClick={openExportPreview}
+          disabled={loading || data.length === 0}
         >
-          Export PDF
+          Export
         </button>
       </div>
+
+      <Dialog open={isExportPreviewOpen} onClose={closeExportPreview} className="relative z-50">
+        <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="mx-auto w-full max-w-5xl bg-white rounded-xl shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between gap-4 p-4 border-b border-gray-200">
+              <div className="min-w-0">
+                <DialogTitle className="text-lg font-bold text-gray-800 truncate">Report Preview</DialogTitle>
+                <div className="text-xs text-gray-500 mt-0.5 truncate">
+                  {reportType.charAt(0).toUpperCase() + reportType.slice(1)} Usage Report
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={performSaveAsPDF}
+                  disabled={exportActionBusy}
+                  className="px-3 py-2 rounded-lg text-sm font-medium bg-indigo-700 hover:bg-indigo-800 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save as PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={performPrint}
+                  disabled={exportActionBusy}
+                  className="px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Print
+                </button>
+                <button
+                  type="button"
+                  onClick={closeExportPreview}
+                  className="px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 hover:bg-gray-50"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            {exportActionError && (
+              <div className="px-4 py-3 text-sm text-red-700 bg-red-50 border-b border-red-100">
+                {exportActionError}
+              </div>
+            )}
+            <div className="h-[75vh] bg-gray-50">
+              <iframe
+                title="Report preview"
+                className="w-full h-full"
+                srcDoc={exportPreviewHTML}
+              />
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
 
       {/* Report Controls */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-4">

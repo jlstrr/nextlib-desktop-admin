@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const isDev = !app.isPackaged; // Check if we are in dev mode
 const fs = require('fs');
@@ -60,6 +60,119 @@ function createWindow() {
     win.loadURL('https://nextlib-desktop-admin.vercel.app/'); 
   }
 }
+
+function buildDataUrlFromHtml(html) {
+  const base64 = Buffer.from(String(html || ''), 'utf8').toString('base64');
+  return `data:text/html;base64,${base64}`;
+}
+
+async function waitForDocumentReady(webContents) {
+  await webContents.executeJavaScript(
+    `
+      new Promise((resolve) => {
+        const done = () => resolve(true);
+        if (document.readyState === 'complete') return done();
+        window.addEventListener('load', done, { once: true });
+      })
+    `,
+    true
+  );
+  await webContents.executeJavaScript(
+    `
+      new Promise((resolve) => {
+        const imgs = Array.from(document.images || []);
+        const pending = imgs.filter((img) => !img.complete);
+        if (pending.length === 0) return resolve(true);
+        let finished = 0;
+        const done = () => {
+          finished += 1;
+          if (finished >= pending.length) resolve(true);
+        };
+        pending.forEach((img) => {
+          img.addEventListener('load', done, { once: true });
+          img.addEventListener('error', done, { once: true });
+        });
+        setTimeout(() => resolve(true), 2000);
+      })
+    `,
+    true
+  );
+}
+
+ipcMain.handle('export-report-pdf', async (event, payload) => {
+  const html = payload?.html;
+  const suggestedFileName = payload?.suggestedFileName;
+  const parent = BrowserWindow.fromWebContents(event.sender);
+  const win = new BrowserWindow({
+    show: false,
+    parent: parent || undefined,
+    modal: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      backgroundThrottling: false
+    }
+  });
+  try {
+    await win.loadURL(buildDataUrlFromHtml(html));
+    await waitForDocumentReady(win.webContents);
+    const pdfBuffer = await win.webContents.printToPDF({
+      printBackground: true,
+      pageSize: 'A4'
+    });
+    const defaultPath = path.join(app.getPath('documents'), String(suggestedFileName || 'report.pdf'));
+    const { canceled, filePath } = await dialog.showSaveDialog(parent || win, {
+      title: 'Save Report as PDF',
+      defaultPath,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    });
+    if (canceled || !filePath) return { ok: true, canceled: true };
+    await fs.promises.writeFile(filePath, pdfBuffer);
+    return { ok: true, canceled: false, filePath };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Export failed' };
+  } finally {
+    win.close();
+  }
+});
+
+ipcMain.handle('print-report', async (event, payload) => {
+  const html = payload?.html;
+  const parent = BrowserWindow.fromWebContents(event.sender);
+  const win = new BrowserWindow({
+    show: false,
+    parent: parent || undefined,
+    modal: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      backgroundThrottling: false
+    }
+  });
+  try {
+    await win.loadURL(buildDataUrlFromHtml(html));
+    await waitForDocumentReady(win.webContents);
+    const result = await new Promise((resolve) => {
+      win.webContents.print(
+        {
+          silent: false,
+          printBackground: true
+        },
+        (success, failureReason) => {
+          resolve({ success, failureReason });
+        }
+      );
+    });
+    if (!result.success) return { ok: false, error: result.failureReason || 'Print failed' };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Print failed' };
+  } finally {
+    win.close();
+  }
+});
 
 app.whenReady().then(createWindow);
 

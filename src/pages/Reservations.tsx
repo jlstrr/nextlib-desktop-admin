@@ -58,6 +58,12 @@ interface Laboratory {
 }
 
 function Reservations() {
+  const getLocalISODate = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [approveTargetId, setApproveTargetId] = useState<string | null>(null);
@@ -79,7 +85,7 @@ function Reservations() {
   const [selectedComputerId, setSelectedComputerId] = useState('');
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
   const [selectedLaboratoryId, setSelectedLaboratoryId] = useState('');
-  const [walkInDate, setWalkInDate] = useState(new Date().toISOString().split('T')[0]);
+  const [walkInDate, setWalkInDate] = useState(() => getLocalISODate());
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [purpose, setPurpose] = useState('');
@@ -354,7 +360,7 @@ function Reservations() {
       // Reset form
       setSelectedComputerId('');
       setSelectedLaboratoryId('');
-      setWalkInDate(new Date().toISOString().split('T')[0]);
+      setWalkInDate(getLocalISODate());
       setStartTime('');
       setEndTime('');
       setPurpose('');
